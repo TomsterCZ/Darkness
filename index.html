@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Wizard's Cell</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -54,30 +54,24 @@
   }
   .hover.show { opacity: 1; }
 
-  /* floating dialogue popup, replaces the old fixed text bar */
+  /* floating dialogue text — no frame, rolls in letter by letter */
   .popup {
     position: absolute;
-    max-width: 46%;
-    background: rgba(8,6,10,0.92);
-    border: 1px solid #5f4e37;
-    border-radius: 5px;
-    color: #eadfc0;
-    font-size: 9px;
-    line-height: 1.7;
-    padding: 9px 12px;
+    max-width: 64%;
+    color: #f3e3b8;
+    font-family: 'VT323', monospace;
+    font-size: clamp(20px, 2.9vw, 32px);
+    line-height: 1.3;
+    letter-spacing: 0.5px;
+    text-align: center;
+    text-shadow:
+      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, -100%);
-    transition: opacity .25s ease;
+    transition: opacity .2s ease;
     z-index: 5;
-  }
-  .popup::after {
-    content: '';
-    position: absolute;
-    left: 50%; top: 100%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: #5f4e37;
   }
   .popup.show { opacity: 1; }
 
@@ -239,16 +233,25 @@ muteBtn.addEventListener('click', () => {
 });
 
 /* ---------- floating popup bubble (replaces the fixed text bar) ---------- */
-let popupTimer = null;
+let popupTimer = null, typeTimer = null;
 function popupAtPercent(xPct, yPct, text) {
   xPct = Math.max(8, Math.min(92, xPct));
   yPct = Math.max(8, Math.min(92, yPct));
   popupEl.style.left = xPct + '%';
   popupEl.style.top = yPct + '%';
-  popupEl.textContent = text;
   popupEl.classList.add('show');
   clearTimeout(popupTimer);
-  popupTimer = setTimeout(() => popupEl.classList.remove('show'), Math.max(2600, text.length * 48));
+  clearInterval(typeTimer);
+  popupEl.textContent = '';
+  let i = 0;
+  typeTimer = setInterval(() => {
+    i++;
+    popupEl.textContent = text.slice(0, i);
+    if (i >= text.length) {
+      clearInterval(typeTimer);
+      popupTimer = setTimeout(() => popupEl.classList.remove('show'), Math.max(1800, text.length * 55));
+    }
+  }, 28);
 }
 function sayAtHero(text) {
   popupAtPercent(hero.x / 1085 * 100, (hero.y - 300) / 566 * 100, text);
