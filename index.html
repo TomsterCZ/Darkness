@@ -40,22 +40,25 @@
     image-rendering: pixelated;
   }
 
-  /* mouse-following hotspot tooltip — frameless, matches the dialogue text */
+  /* hotspot name strip — lives OUTSIDE the picture, between the screen and the inventory */
+  .hover-strip {
+    width: 100%;
+    min-height: 1.9em;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
   .hover {
-    position: absolute;
-    left: 0; top: 0;
     font-family: 'VT323', monospace;
-    font-size: clamp(23px, 3vw, 30px);
-    color: #f3e3b8;
-    text-shadow:
-      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
-      2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+    font-size: clamp(20px, 2.6vw, 26px);
+    color: #d8b988;
     opacity: 0;
     transition: opacity .12s;
     pointer-events: none;
     letter-spacing: 0.5px;
     white-space: nowrap;
-    z-index: 6;
   }
   .hover.show { opacity: 1; }
 
@@ -144,7 +147,6 @@
 <div class="stage" id="stage">
   <div class="screen-wrap" id="screenWrap">
     <canvas id="room" width="1085" height="566" aria-label="Prozkoumej kobku klikáním na podlahu nebo na předměty"></canvas>
-    <div id="hover" class="hover"></div>
     <div id="popup" class="popup"></div>
     <div class="controls">
       <div class="ctrlbtn" id="muteBtn" title="Přepnout hudbu">♪</div>
@@ -159,6 +161,7 @@
       <source src="assets/music/before_the_light_soft_soundblaster.wav" type="audio/wav">
     </audio>
   </div>
+  <div class="hover-strip"><div id="hover" class="hover"></div></div>
   <div class="inventory-bar">
     <div class="inventory" id="inventory"></div>
   </div>
@@ -219,6 +222,16 @@ function fadeAudio(el, from, to, durMs) {
   }
   requestAnimationFrame(step);
 }
+/* generic value ramp — used so scene changes fade smoothly instead of blinking in/out */
+function rampValue(onUpdate, from, to, durMs) {
+  const start = performance.now();
+  function step(t) {
+    const p = Math.min(1, (t - start) / durMs);
+    onUpdate(from + (to - from) * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
 function unlockAudio() {
   if (actx) return;
   actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -244,6 +257,55 @@ function playClick() {
   gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
   noise.connect(filt); filt.connect(gain); gain.connect(actx.destination);
   noise.start(t); noise.stop(t + dur);
+}
+function playChestOpen() {
+  if (!actx || muted) return;
+  const t = actx.currentTime;
+  // creak: filtered noise with a slow downward pitch sweep
+  const creakDur = 0.5;
+  const buf = actx.createBuffer(1, Math.ceil(actx.sampleRate * creakDur), actx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = actx.createBufferSource();
+  noise.buffer = buf;
+  const filt = actx.createBiquadFilter();
+  filt.type = 'bandpass';
+  filt.Q.value = 7;
+  filt.frequency.setValueAtTime(1400, t);
+  filt.frequency.exponentialRampToValueAtTime(420, t + creakDur);
+  const gain = actx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.22, t + 0.08);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + creakDur);
+  noise.connect(filt); filt.connect(gain); gain.connect(actx.destination);
+  noise.start(t); noise.stop(t + creakDur);
+  // thud: low sine/triangle thump shortly after
+  const thudT = t + creakDur + 0.05, thudDur = 0.22;
+  const osc = actx.createOscillator(), og = actx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(110, thudT);
+  osc.frequency.exponentialRampToValueAtTime(55, thudT + thudDur);
+  og.gain.setValueAtTime(0.5, thudT);
+  og.gain.exponentialRampToValueAtTime(0.001, thudT + thudDur);
+  osc.connect(og); og.connect(actx.destination);
+  osc.start(thudT); osc.stop(thudT + thudDur);
+}
+function playDeathSound() {
+  if (!actx || muted) return;
+  const t = actx.currentTime, dur = 1.9;
+  const osc = actx.createOscillator(), gain = actx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(180, t);
+  osc.frequency.exponentialRampToValueAtTime(35, t + dur);
+  const filt = actx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(1200, t);
+  filt.frequency.exponentialRampToValueAtTime(90, t + dur);
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.3, t + 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(filt); filt.connect(gain); gain.connect(actx.destination);
+  osc.start(t); osc.stop(t + dur);
 }
 muteBtn.addEventListener('click', () => {
   muted = !muted;
@@ -298,6 +360,8 @@ let images = {};
 const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
 getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
 getImage('roomNoPotion', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
+getImage('chestOpen', 'assets/props/chest_open.png');
+const CHEST_OPEN_POS = { x: 143, y: 362, w: 195, h: 190 };
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -307,6 +371,7 @@ for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.
 let found = { iron_key: false, paper: false, green_potion: false };
 let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
+let matchFade = 1, potionMix = 0, chestMix = 0;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
@@ -327,10 +392,10 @@ const litHotspots = [
 function currentHotspots() { return gameState === 'dark' ? darkHotspots : litHotspots; }
 
 const ITEM_DEFS = {
-  matchbox: { name: 'Krabička sirek', icon: 'assets/items/matchbox_open_inventory.png', desc: 'Otevřená krabička sirek. Uvnitř zbývá jen pár kousků.' },
-  iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.' },
-  paper: { name: 'Popsaný pergamen', icon: 'assets/props/pentagram_scroll.png', desc: 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.' },
-  green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.' }
+  matchbox: { name: 'Krabička sirek', icon: 'assets/items/matchbox_open_inventory.png', desc: 'Otevřená krabička sirek. Uvnitř zbývá jen pár kousků.', invScale: 1.5 },
+  iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.', invScale: 1 },
+  paper: { name: 'Popsaný pergamen', icon: 'assets/props/pentagram_scroll.png', desc: 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.', invScale: 1 },
+  green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.', invScale: 0.72 }
 };
 let heldItem = null, prevInvKeys = [];
 function selectItem(key) {
@@ -351,6 +416,9 @@ function renderInventory() {
     img.src = def.icon;
     img.alt = def.name;
     img.title = def.name + ' — ' + def.desc;
+    const pct = 92 * (def.invScale || 1);
+    img.style.width = pct + '%';
+    img.style.height = pct + '%';
     if (!prevInvKeys.includes(key)) img.classList.add('pop-in');
     el.append(img);
     el.addEventListener('click', (ev) => { ev.stopPropagation(); playClick(); selectItem(key); });
@@ -379,8 +447,11 @@ function startLitTransition() {
 
 function inspect(id) {
   if (id === 'matchbox') {
-    if (!matchTaken) { matchTaken = true; renderInventory(); sayAtHero('Zvedneš krabičku sirek z dlažby a otevřeš ji.'); gesture('use', 1000); }
-    else { sayAtHero('Na dlažbě už nic není.'); gesture('examine'); }
+    if (!matchTaken) {
+      matchTaken = true; renderInventory();
+      rampValue(v => matchFade = v, 1, 0, 450);
+      sayAtHero('Zvedneš krabičku sirek z dlažby a otevřeš ji.'); gesture('use', 1000);
+    } else { sayAtHero('Na dlažbě už nic není.'); gesture('examine'); }
     return;
   }
   if (id === 'candle') {
@@ -396,13 +467,20 @@ function inspect(id) {
     else { sayAtHero('Za knihou už nic není, jen prázdná škvíra ve zdi.'); gesture('examine'); }
   }
   if (id === 'chest') {
-    if (!found.paper) { give('paper'); sayAtHero('Víko zavrže a povolí. Uvnitř leží jediný list pergamenu, popsaný podivnými, rozmazanými znaky.'); gesture('use', 1100); }
-    else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
+    if (!found.paper) {
+      give('paper'); openChest = true;
+      playChestOpen();
+      rampValue(v => chestMix = v, 0, 1, 550);
+      sayAtHero('Víko zavrže a povolí. Uvnitř leží jediný list pergamenu, popsaný podivnými, rozmazanými znaky.'); gesture('use', 1100);
+    } else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
   if (id === 'rune') { sayAtHero('Pěticípá pečeť. Pod ní je vyryto: "Zelený plamen si pamatuje cestu."'); gesture('examine'); }
   if (id === 'table') {
-    if (!found.green_potion) { give('green_potion'); sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('use', 1150); }
-    else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
+    if (!found.green_potion) {
+      give('green_potion');
+      rampValue(v => potionMix = v, 0, 1, 550);
+      sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('use', 1150);
+    } else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
   }
   if (id === 'window') {
     if (heldItem === 'paper') {
@@ -455,6 +533,7 @@ function drinkPotion() {
   setTimeout(() => { if (!dead) sayAtHero('Hrdlem ti projede ledový oheň. Něco je špatně...'); }, 1700);
   setTimeout(() => {
     dead = true;
+    playDeathSound();
     const startT = performance.now(), DUR = 2200;
     function stepFade(t) {
       const p = Math.min(1, (t - startT) / DUR);
@@ -482,13 +561,12 @@ function point(ev) {
 function getHotspot(x, y) { return currentHotspots().find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
 function isOnHero(x, y) { return Math.abs(x - hero.x) < 105 && y > hero.y - 240 && y < hero.y + 10; }
 
+const HERO_NAME = 'Zubožený žalářník';
 canvas.addEventListener('pointermove', ev => {
   const [x, y] = point(ev), h = getHotspot(x, y), onHero = !h && isOnHero(x, y);
-  const r = screenWrap.getBoundingClientRect();
-  hover.style.left = (ev.clientX - r.left + 16) + 'px';
-  hover.style.top = (ev.clientY - r.top + 20) + 'px';
-  hover.classList.toggle('show', !!h);
+  hover.classList.toggle('show', !!h || onHero);
   if (h) hover.textContent = h.title;
+  else if (onHero) hover.textContent = HERO_NAME;
   if (heldItem) stage.style.cursor = HELD_CURSORS[heldItem];
   else if (onHero) stage.style.cursor = CURSORS.examine;
   else stage.style.cursor = CURSORS[cursorForHotspot(h)];
@@ -526,15 +604,24 @@ function frame(now) {
 
   ctx.clearRect(0, 0, 1085, 566);
   if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
-  const litImg = found.green_potion ? images.roomNoPotion : images.room;
-  if (litMix > 0 && litImg?.complete && litImg.naturalWidth) {
+  if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
     ctx.globalAlpha = litMix;
-    ctx.drawImage(litImg, 0, 0);
+    ctx.drawImage(images.room, 0, 0);
     ctx.globalAlpha = 1;
   }
-  if (gameState === 'dark' && !matchTaken && images.matchbox?.complete && images.matchbox.naturalWidth) {
+  if (litMix > 0 && potionMix > 0 && images.roomNoPotion?.complete && images.roomNoPotion.naturalWidth) {
+    ctx.globalAlpha = litMix * potionMix;
+    ctx.drawImage(images.roomNoPotion, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  if (litMix > 0 && chestMix > 0 && images.chestOpen?.complete && images.chestOpen.naturalWidth) {
+    ctx.globalAlpha = litMix * chestMix;
+    ctx.drawImage(images.chestOpen, CHEST_OPEN_POS.x, CHEST_OPEN_POS.y, CHEST_OPEN_POS.w, CHEST_OPEN_POS.h);
+    ctx.globalAlpha = 1;
+  }
+  if (gameState === 'dark' && matchFade > 0 && images.matchbox?.complete && images.matchbox.naturalWidth) {
     const mW = 46, mH = 46 * (images.matchbox.naturalHeight / images.matchbox.naturalWidth);
-    ctx.globalAlpha = 0.09;
+    ctx.globalAlpha = 0.09 * matchFade;
     ctx.drawImage(images.matchbox, MATCH_POS[0] - mW / 2, MATCH_POS[1] - mH / 2, mW, mH);
     ctx.globalAlpha = 1;
   }
@@ -556,19 +643,8 @@ function frame(now) {
     ctx.fillRect(0, 0, 1085, 566);
   }
   if (deathFade > 0) {
-    ctx.fillStyle = `rgba(0,0,0,${deathFade})`;
+    ctx.fillStyle = `rgba(3,12,7,${deathFade})`;
     ctx.fillRect(0, 0, 1085, 566);
-    if (deathFade >= 1) {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#9c2b23';
-      ctx.font = "52px 'VT323', monospace";
-      ctx.fillText('KONEC HRY', 542, 268);
-      ctx.fillStyle = '#8a7558';
-      ctx.font = "24px 'VT323', monospace";
-      ctx.fillText('Lektvar nebyl určen k pití.', 542, 308);
-      ctx.fillText('Klikni na ↺ pro nový pokus.', 542, 338);
-      ctx.textAlign = 'left';
-    }
   }
   requestAnimationFrame(frame);
 }
@@ -582,6 +658,7 @@ resetBtn.addEventListener('click', () => {
   openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false;
   ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
+  matchFade = 1; potionMix = 0; chestMix = 0;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   heldItem = null; prevInvKeys = []; stage.style.cursor = CURSORS.walk;
   popupEl.classList.remove('show');
