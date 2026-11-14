@@ -133,6 +133,10 @@
     <source src="assets/music/whisper_under_stone_soundblaster.ogg" type="audio/ogg">
     <source src="assets/music/whisper_under_stone_soundblaster.wav" type="audio/wav">
   </audio>
+  <audio id="bgmDark" loop preload="auto">
+    <source src="assets/music/before_the_light_soft_soundblaster.ogg" type="audio/ogg">
+    <source src="assets/music/before_the_light_soft_soundblaster.wav" type="audio/wav">
+  </audio>
 </div>
 
 <script>
@@ -145,6 +149,7 @@ const hover = document.querySelector('#hover');
 const popupEl = document.querySelector('#popup');
 const invEl = document.querySelector('#inventory');
 const bgm = document.querySelector('#bgm');
+const bgmDark = document.querySelector('#bgmDark');
 const muteBtn = document.querySelector('#muteBtn');
 const resetBtn = document.querySelector('#resetBtn');
 
@@ -164,17 +169,29 @@ function cursorForHotspot(h) {
     case 'chest': return !found.iron_key ? 'talk' : (!openChest ? 'pickup' : 'examine');
     case 'table': return found.green_potion ? 'examine' : 'pickup';
     case 'door': return (found.pentagram_scroll || found.green_potion) ? 'use' : 'examine';
+    case 'matchbox': return matchTaken ? 'examine' : 'pickup';
+    case 'candle': return (matchTaken && !igniting) ? 'use' : 'examine';
     default: return 'examine';
   }
 }
 
-/* ---------- audio: looping theme + synthesized click blips ---------- */
+/* ---------- audio: looping theme(s) + synthesized click blips ---------- */
 let actx = null, muted = false;
+function fadeAudio(el, from, to, durMs) {
+  const start = performance.now();
+  function step(t) {
+    const p = Math.min(1, (t - start) / durMs);
+    el.volume = from + (to - from) * p;
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
 function unlockAudio() {
   if (actx) return;
   actx = new (window.AudioContext || window.webkitAudioContext)();
-  bgm.volume = 0.55;
-  bgm.play().catch(() => {});
+  bgmDark.volume = 0;
+  bgmDark.play().catch(() => {});
+  fadeAudio(bgmDark, 0, 0.5, 3000);
 }
 document.addEventListener('pointerdown', unlockAudio, { once: true });
 function playClick() {
@@ -192,6 +209,7 @@ function playClick() {
 muteBtn.addEventListener('click', () => {
   muted = !muted;
   bgm.muted = muted;
+  bgmDark.muted = muted;
   muteBtn.style.opacity = muted ? '0.25' : '0.45';
   muteBtn.textContent = muted ? '♪̸' : '♪';
 });
@@ -240,15 +258,23 @@ function idleFrameAt(phaseMs) {
 let images = {};
 const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
 getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
+getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
+getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
 for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, `assets/props/${id}.png`);
 
 let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
 let openChest = false, escaped = false;
-let hero = { x: 421, y: 545, destX: 421, destY: 545, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
+let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
+const MATCH_POS = [700, 465], CANDLE_POS = [650, 538];
+let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
 
-const hotspots = [
+const darkHotspots = [
+  { id: 'matchbox', title: 'Krabička sirek', box: [655, 432, 758, 498], to: [705, 540] },
+  { id: 'candle', title: 'Nedohořelá svíce', box: [505, 245, 800, 410], to: [650, 538] }
+];
+const litHotspots = [
   { id: 'shelf', title: 'Zaprášené knihy', box: [90, 110, 343, 424], to: [355, 541] },
   { id: 'chest', title: 'Okovaná truhla', box: [132, 421, 337, 554], to: [330, 548] },
   { id: 'rune', title: 'Tajemný diagram', box: [448, 144, 606, 266], to: [590, 537] },
@@ -256,28 +282,31 @@ const hotspots = [
   { id: 'window', title: 'Zamřížované okno', box: [699, 61, 870, 256], to: [792, 538] },
   { id: 'door', title: 'Zamčené dveře cely', box: [888, 80, 1074, 490], to: [918, 540] }
 ];
+function currentHotspots() { return gameState === 'dark' ? darkHotspots : litHotspots; }
 
+const ITEM_DEFS = {
+  matchbox: { name: 'Krabička sirek', icon: 'assets/items/matchbox_open_inventory.png', desc: 'Otevřená krabička sirek. Uvnitř zbývá jen pár kousků.' },
+  iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.' },
+  pentagram_scroll: { name: 'Svitek s runami', icon: 'assets/props/pentagram_scroll.png', desc: 'Pergamen popisuje pečeť, která povolí světlu uvězněnému v zeleném skle.' },
+  green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.' }
+};
 function renderInventory() {
-  const items = [['iron_key', 'Železný klíč'], ['pentagram_scroll', 'Svitek s runami'], ['green_potion', 'Zelený lektvar']].filter(([key]) => found[key]);
+  const keys = [];
+  if (matchTaken) keys.push('matchbox');
+  for (const k of ['iron_key', 'pentagram_scroll', 'green_potion']) if (found[k]) keys.push(k);
   invEl.innerHTML = '';
   for (let i = 0; i < 4; i++) {
     const el = document.createElement('div');
-    el.className = 'slot' + (items[i] ? ' filled' : '');
-    if (items[i]) {
-      const [key, name] = items[i];
+    const key = keys[i];
+    el.className = 'slot' + (key ? ' filled' : '');
+    if (key) {
+      const def = ITEM_DEFS[key];
       const img = document.createElement('img');
-      img.src = `assets/props/${key}.png`;
-      img.alt = name;
+      img.src = def.icon;
+      img.alt = def.name;
       el.append(img);
       el.style.cursor = CURSORS.talk;
-      el.addEventListener('click', (ev) => {
-        playClick();
-        sayAtClient(ev.clientX, ev.clientY, {
-          iron_key: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.',
-          pentagram_scroll: 'Pergamen popisuje pečeť, která povolí světlu uvězněnému v zeleném skle.',
-          green_potion: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.'
-        }[key]);
-      });
+      el.addEventListener('click', (ev) => { playClick(); sayAtClient(ev.clientX, ev.clientY, def.desc); });
     }
     invEl.append(el);
   }
@@ -286,7 +315,32 @@ function renderInventory() {
 function give(key) { found[key] = true; renderInventory(); }
 function gesture(action, time = 850) { hero.action = action; hero.phase = 0; hero.actUntil = performance.now() + time; }
 
+function startLitTransition() {
+  gameState = 'lit';
+  const startT = performance.now(), DUR = 2200;
+  function stepMix(t) {
+    litMix = Math.min(1, (t - startT) / DUR);
+    if (litMix < 1) requestAnimationFrame(stepMix);
+  }
+  requestAnimationFrame(stepMix);
+  fadeAudio(bgmDark, bgmDark.volume, 0, DUR);
+  bgm.currentTime = 0; bgm.volume = 0; bgm.play().catch(() => {});
+  fadeAudio(bgm, 0, 0.55, DUR);
+  setTimeout(() => { bgmDark.pause(); igniting = false; }, DUR + 100);
+}
+
 function inspect(id) {
+  if (id === 'matchbox') {
+    if (!matchTaken) { matchTaken = true; renderInventory(); sayAtHero('Zvedneš krabičku sirek z dlažby a otevřeš ji.'); gesture('use', 1000); }
+    else { sayAtHero('Na dlažbě už nic není.'); gesture('examine'); }
+    return;
+  }
+  if (id === 'candle') {
+    if (igniting) return;
+    if (!matchTaken) { sayAtHero('Je příliš velká tma. Potřebuju světlo.'); gesture('examine'); }
+    else { igniting = true; gesture('use', 1300); sayAtHero('Škrtneš sirkou a zapálíš svíci.'); setTimeout(startLitTransition, 1300); }
+    return;
+  }
   if (id === 'shelf') {
     if (!found.iron_key) { give('iron_key'); sayAtHero('Za starým grimoárem najdeš malý železný klíč.'); gesture('use', 1100); }
     else { sayAtHero('Století prachu. Jedna kniha je teď podezřele lehká.'); gesture('examine'); }
@@ -324,7 +378,7 @@ function point(ev) {
   const r = canvas.getBoundingClientRect();
   return [(ev.clientX - r.left) / r.width * 1085, (ev.clientY - r.top) / r.height * 566];
 }
-function getHotspot(x, y) { return hotspots.find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
+function getHotspot(x, y) { return currentHotspots().find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
 
 canvas.addEventListener('pointermove', ev => {
   const [x, y] = point(ev), h = getHotspot(x, y);
@@ -342,6 +396,7 @@ canvas.addEventListener('click', ev => {
   const [x, y] = point(ev), h = getHotspot(x, y);
   if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
   else if (y > 360) { hero.queued = null; goTo(x, y); }
+  else if (gameState === 'dark') { gesture('examine'); sayAtHero('V té tmě nic nerozeznáš.'); }
   else { gesture('examine'); sayAtHero('Vlhké kamenné zdi jsou starší, než si kdokoliv živý pamatuje.'); }
 });
 
@@ -363,7 +418,16 @@ function frame(now) {
   } else { hero.phase += dt * 1000; }
 
   ctx.clearRect(0, 0, 1085, 566);
-  if (images.room?.complete && images.room.naturalWidth) ctx.drawImage(images.room, 0, 0);
+  if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
+  if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
+    ctx.globalAlpha = litMix;
+    ctx.drawImage(images.room, 0, 0);
+    ctx.globalAlpha = 1;
+  }
+  if (gameState === 'dark' && !matchTaken && images.matchbox?.complete && images.matchbox.naturalWidth) {
+    const mW = 46, mH = 46 * (images.matchbox.naturalHeight / images.matchbox.naturalWidth);
+    ctx.drawImage(images.matchbox, MATCH_POS[0] - mW / 2, MATCH_POS[1] - mH / 2, mW, mH);
+  }
   ctx.fillStyle = 'rgba(0,0,0,.28)';
   ctx.beginPath(); ctx.ellipse(hero.x, hero.y - 2, 52, 9, 0, 0, Math.PI * 2); ctx.fill();
   const f = hero.action === 'idle' ? idleFrameAt(hero.phase) : Math.floor(hero.phase / frameMs[hero.action]) % aCount[hero.action];
@@ -387,8 +451,11 @@ resetBtn.addEventListener('click', () => {
   playClick();
   found = { iron_key: false, pentagram_scroll: false, green_potion: false };
   openChest = false; escaped = false;
-  hero = { x: 421, y: 545, destX: 421, destY: 545, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
+  gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
+  hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   popupEl.classList.remove('show');
+  bgm.pause(); bgm.currentTime = 0;
+  if (actx) { bgmDark.currentTime = 0; bgmDark.volume = muted ? 0 : 0.5; bgmDark.play().catch(() => {}); }
   renderInventory();
 });
 })();
