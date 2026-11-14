@@ -26,7 +26,6 @@
     aspect-ratio: 1085 / 566;
     overflow: hidden;
     background: #000;
-    cursor: none;
   }
   canvas {
     width: 100%;
@@ -91,7 +90,6 @@
     border-radius: 4px;
     display: grid;
     place-items: center;
-    cursor: none;
   }
   .slot.filled { background: rgba(8,6,10,0.78); }
   .slot img { width: 65%; height: 65%; object-fit: contain; image-rendering: pixelated; }
@@ -113,7 +111,7 @@
     font-size: 12px;
     display: grid;
     place-items: center;
-    cursor: none;
+    cursor: pointer;
     opacity: 0.45;
     transition: opacity .2s;
   }
@@ -150,59 +148,25 @@ const bgm = document.querySelector('#bgm');
 const muteBtn = document.querySelector('#muteBtn');
 const resetBtn = document.querySelector('#resetBtn');
 
-/* ---------- pixel-art hand / fist cursor ---------- */
-function cursorDataUri(rows, hotspot) {
-  let rects = '';
-  rows.forEach((row, y) => {
-    row.padEnd(16, '.').slice(0, 16).split('').forEach((ch, x) => {
-      const fill = ch === 'o' ? '#1c120b' : ch === 's' ? '#e9c99a' : null;
-      if (fill) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${fill}"/>`;
-    });
-  });
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hotspot[0]} ${hotspot[1]}, pointer`;
+/* ---------- hand-painted contextual cursors ---------- */
+const CURSORS = {
+  walk: 'url("assets/cursors/walk.png") 6 10, auto',
+  examine: 'url("assets/cursors/examine.png") 20 20, auto',
+  use: 'url("assets/cursors/use.png") 30 28, auto',
+  talk: 'url("assets/cursors/talk.png") 30 28, auto',
+  pickup: 'url("assets/cursors/pickup.png") 28 26, auto'
+};
+screenWrap.style.cursor = CURSORS.walk;
+function cursorForHotspot(h) {
+  if (!h) return 'walk';
+  switch (h.id) {
+    case 'shelf': return found.iron_key ? 'examine' : 'pickup';
+    case 'chest': return !found.iron_key ? 'talk' : (!openChest ? 'pickup' : 'examine');
+    case 'table': return found.green_potion ? 'examine' : 'pickup';
+    case 'door': return (found.pentagram_scroll || found.green_potion) ? 'use' : 'examine';
+    default: return 'examine';
+  }
 }
-const HAND = [
-  "......oo........",
-  "......os........",
-  "......os........",
-  "......os........",
-  "......os........",
-  "....oooooo......",
-  "...osssssso.....",
-  "..osssssssoo....",
-  "..osssssssso....",
-  "..osssssssso....",
-  "..osssssssso....",
-  "...osssssoo.....",
-  "....oooooo......",
-  ".................",
-  ".................",
-  "................."
-];
-const FIST = [
-  ".................",
-  ".................",
-  ".................",
-  ".................",
-  ".................",
-  "....oooooo......",
-  "...osssssso.....",
-  "..osssssssoo....",
-  "..osssssssso....",
-  "..osssssssso....",
-  "..osssssssso....",
-  "...osssssoo.....",
-  "....oooooo......",
-  ".................",
-  ".................",
-  "................."
-];
-const handCursor = cursorDataUri(HAND, [7, 6]);
-const fistCursor = cursorDataUri(FIST, [7, 6]);
-screenWrap.style.cursor = handCursor;
-screenWrap.addEventListener('pointerdown', () => { screenWrap.style.cursor = fistCursor; });
-window.addEventListener('pointerup', () => { screenWrap.style.cursor = handCursor; });
 
 /* ---------- audio: looping theme + synthesized click blips ---------- */
 let actx = null, muted = false;
@@ -262,8 +226,16 @@ function sayAtClient(clientX, clientY, text) {
 }
 
 /* ---------- game state ---------- */
-const aCount = { walk_right: 5, walk_left: 5, idle: 4, examine: 3, talk: 4, pick_up: 4 };
-const frameMs = { walk_right: 130, walk_left: 130, idle: 250, examine: 220, talk: 250, pick_up: 220 };
+const aCount = { walk_right: 10, walk_left: 10, idle: 10, examine: 6, use: 10 };
+const frameMs = { walk_right: 180, walk_left: 180, idle: 150, examine: 200, use: 230 };
+/* idle holds its first pose for a long, mostly-still beat, then cycles small shifts */
+const idleTiming = [8500, 150, 150, 150, 150, 150, 150, 150, 150, 150];
+const idleTotal = idleTiming.reduce((a, b) => a + b, 0);
+function idleFrameAt(phaseMs) {
+  let t = phaseMs % idleTotal;
+  for (let i = 0; i < idleTiming.length; i++) { if (t < idleTiming[i]) return i; t -= idleTiming[i]; }
+  return 0;
+}
 
 let images = {};
 const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
@@ -297,6 +269,7 @@ function renderInventory() {
       img.src = `assets/props/${key}.png`;
       img.alt = name;
       el.append(img);
+      el.style.cursor = CURSORS.talk;
       el.addEventListener('click', (ev) => {
         playClick();
         sayAtClient(ev.clientX, ev.clientY, {
@@ -315,24 +288,24 @@ function gesture(action, time = 850) { hero.action = action; hero.phase = 0; her
 
 function inspect(id) {
   if (id === 'shelf') {
-    if (!found.iron_key) { give('iron_key'); sayAtHero('Za starým grimoárem najdeš malý železný klíč.'); gesture('pick_up', 1100); }
+    if (!found.iron_key) { give('iron_key'); sayAtHero('Za starým grimoárem najdeš malý železný klíč.'); gesture('use', 1100); }
     else { sayAtHero('Století prachu. Jedna kniha je teď podezřele lehká.'); gesture('examine'); }
   }
   if (id === 'chest') {
-    if (!found.iron_key) { sayAtHero('Tlusté řetězy a železný zámek. Hodil by se klíč.'); gesture('talk'); }
-    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('Klíč zaskřípe a otočí se! Uvnitř leží svitek s runami, šeptající o měsíčním světle uvězněném ve skle.'); gesture('pick_up', 1100); }
+    if (!found.iron_key) { sayAtHero('Tlusté řetězy a železný zámek. Hodil by se klíč.'); gesture('use'); }
+    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('Klíč zaskřípe a otočí se! Uvnitř leží svitek s runami, šeptající o měsíčním světle uvězněném ve skle.'); gesture('use', 1100); }
     else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
   if (id === 'rune') { sayAtHero('Pěticípá pečeť. Pod ní je vyryto: "Zelený plamen si pamatuje cestu."'); gesture('examine'); }
   if (id === 'table') {
-    if (!found.green_potion) { give('green_potion'); sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('pick_up', 1150); }
+    if (!found.green_potion) { give('green_potion'); sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('use', 1150); }
     else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
   }
   if (id === 'window') { sayAtHero('Měsíc stojí vysoko. Za mřížemi se ve větru komíhají černé jedle.'); gesture('examine'); }
   if (id === 'door') {
     if (found.pentagram_scroll && found.green_potion) {
       escaped = true;
-      gesture('talk', 1800);
+      gesture('use', 1800);
       sayAtHero('Prstem obkreslíš runu a poliješ klíčovou dírku elixírem. Pečeť zazáří — dveře s cvaknutím povolí!');
     } else if (found.pentagram_scroll) { sayAtHero('Runa potřebuje k prolomení pečeti živou přísadu.'); gesture('examine'); }
     else if (found.green_potion) { sayAtHero('Lektvar u klíčové dírky jiskří, ale žádné zaklínadlo nevede jeho sílu.'); gesture('examine'); }
@@ -360,8 +333,9 @@ canvas.addEventListener('pointermove', ev => {
   hover.style.top = (ev.clientY - r.top + 20) + 'px';
   hover.classList.toggle('show', !!h);
   if (h) hover.textContent = h.title;
+  screenWrap.style.cursor = CURSORS[cursorForHotspot(h)];
 });
-canvas.addEventListener('pointerleave', () => hover.classList.remove('show'));
+canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); screenWrap.style.cursor = CURSORS.walk; });
 canvas.addEventListener('click', ev => {
   playClick();
   if (escaped) return;
@@ -392,12 +366,12 @@ function frame(now) {
   if (images.room?.complete && images.room.naturalWidth) ctx.drawImage(images.room, 0, 0);
   ctx.fillStyle = 'rgba(0,0,0,.28)';
   ctx.beginPath(); ctx.ellipse(hero.x, hero.y - 2, 52, 9, 0, 0, Math.PI * 2); ctx.fill();
-  const f = Math.floor(hero.phase / frameMs[hero.action]) % aCount[hero.action];
+  const f = hero.action === 'idle' ? idleFrameAt(hero.phase) : Math.floor(hero.phase / frameMs[hero.action]) % aCount[hero.action];
   const img = images[`${hero.action}_${f}`] || images.idle_0;
   if (img?.complete && img.naturalWidth) {
-    const scale = 2.83, W = img.naturalWidth * scale, H = img.naturalHeight * scale;
+    const scale = 1.13, W = img.naturalWidth * scale, H = img.naturalHeight * scale;
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - 105 * scale), W, H);
+    ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - H), W, H);
   }
   if (escaped) {
     ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
