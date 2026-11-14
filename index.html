@@ -297,6 +297,7 @@ function idleFrameAt(phaseMs) {
 let images = {};
 const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
 getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
+getImage('roomNoPotion', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -426,8 +427,24 @@ function inspect(id) {
   }
 }
 
+const SELF_LINES = [
+  'Hlava se mi točí a klouby bolí, jako bych tu byl vězněn celé týdny.',
+  'Ruce se mi třesou. Musím odsud pryč, než mě ta tma pohltí docela.',
+  'Žaludek se mi zvedá a ve spáncích mi buší vlastní tep.',
+  'Jsem hladový, promrzlý a před očima se mi dělají mžitky.',
+  'Svaly mám ztuhlé jako kámen. Netuším, kolik dní už tu jsem.',
+  'Pot mi stéká po zádech, i když je tu zima. Něco je se mnou špatně.',
+  'V uších mi zvoní a podlaha se mi zdá nakloněná.',
+  'Rty mám popraskané a v puse mám chuť starého kovu.',
+  'Srdce mi bije nepravidelně — tahle kobka mě pomalu zabíjí.',
+  'Oči mě pálí od tmy a z hlavy mi nejde výraz té čarodějky.'
+];
+let lastSelfLine = -1;
 function examineSelf() {
-  sayAtHero('Hlava se mi točí a klouby bolí, jako bych tu byl vězněn celé týdny. Musím odsud pryč, než mě ta tma pohltí docela.');
+  let i = Math.floor(Math.random() * SELF_LINES.length);
+  if (SELF_LINES.length > 1) while (i === lastSelfLine) i = Math.floor(Math.random() * SELF_LINES.length);
+  lastSelfLine = i;
+  sayAtHero(SELF_LINES[i]);
 }
 
 function drinkPotion() {
@@ -463,29 +480,31 @@ function point(ev) {
   return [(ev.clientX - r.left) / r.width * 1085, (ev.clientY - r.top) / r.height * 566];
 }
 function getHotspot(x, y) { return currentHotspots().find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
+function isOnHero(x, y) { return Math.abs(x - hero.x) < 105 && y > hero.y - 240 && y < hero.y + 10; }
 
 canvas.addEventListener('pointermove', ev => {
-  const [x, y] = point(ev), h = getHotspot(x, y);
+  const [x, y] = point(ev), h = getHotspot(x, y), onHero = !h && isOnHero(x, y);
   const r = screenWrap.getBoundingClientRect();
   hover.style.left = (ev.clientX - r.left + 16) + 'px';
   hover.style.top = (ev.clientY - r.top + 20) + 'px';
   hover.classList.toggle('show', !!h);
   if (h) hover.textContent = h.title;
-  stage.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS[cursorForHotspot(h)];
+  if (heldItem) stage.style.cursor = HELD_CURSORS[heldItem];
+  else if (onHero) stage.style.cursor = CURSORS.examine;
+  else stage.style.cursor = CURSORS[cursorForHotspot(h)];
 });
 canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); stage.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk; });
 canvas.addEventListener('click', ev => {
   playClick();
   if (escaped || dead) return;
   const [x, y] = point(ev), h = getHotspot(x, y);
-  const onHero = !h && Math.abs(x - hero.x) < 105 && y > hero.y - 240 && y < hero.y + 10;
+  const onHero = !h && isOnHero(x, y);
   if (onHero && heldItem === 'green_potion') { drinkPotion(); return; }
   if (onHero) { gesture('examine'); examineSelf(); return; }
   if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
   else if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
   else if (y > 360) { hero.queued = null; heldItem = null; stage.style.cursor = CURSORS.walk; renderInventory(); goTo(x, y); }
-  else if (gameState === 'dark') { gesture('examine'); sayAtHero('V té tmě nic nerozeznáš.'); }
-  else { gesture('examine'); sayAtHero('Vlhké kamenné zdi jsou starší, než si kdokoliv živý pamatuje.'); }
+  else { /* empty wall/background click: just the sound, no message */ }
 });
 
 function frame(now) {
@@ -507,9 +526,10 @@ function frame(now) {
 
   ctx.clearRect(0, 0, 1085, 566);
   if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
-  if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
+  const litImg = found.green_potion ? images.roomNoPotion : images.room;
+  if (litMix > 0 && litImg?.complete && litImg.naturalWidth) {
     ctx.globalAlpha = litMix;
-    ctx.drawImage(images.room, 0, 0);
+    ctx.drawImage(litImg, 0, 0);
     ctx.globalAlpha = 1;
   }
   if (gameState === 'dark' && !matchTaken && images.matchbox?.complete && images.matchbox.naturalWidth) {
