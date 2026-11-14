@@ -191,17 +191,17 @@ const CURSORS = {
 const HELD_CURSORS = {
   matchbox: 'url("assets/cursors/held_matchbox.png") 38 38, auto',
   iron_key: 'url("assets/cursors/held_iron_key.png") 38 38, auto',
-  pentagram_scroll: 'url("assets/cursors/held_pentagram_scroll.png") 38 38, auto',
+  paper: 'url("assets/cursors/held_paper.png") 38 38, auto',
   green_potion: 'url("assets/cursors/held_green_potion.png") 38 38, auto'
 };
 stage.style.cursor = CURSORS.walk;
 function cursorForHotspot(h) {
   if (!h) return 'walk';
   switch (h.id) {
-    case 'shelf': return found.iron_key ? 'examine' : 'pickup';
-    case 'chest': return !found.iron_key ? 'talk' : (!openChest ? 'pickup' : 'examine');
+    case 'shelf': return (!paperRevealed || found.iron_key) ? 'examine' : 'pickup';
+    case 'chest': return found.paper ? 'examine' : 'pickup';
     case 'table': return found.green_potion ? 'examine' : 'pickup';
-    case 'door': return (found.pentagram_scroll || found.green_potion) ? 'use' : 'examine';
+    case 'door': return found.iron_key ? 'use' : 'examine';
     case 'matchbox': return matchTaken ? 'examine' : 'pickup';
     case 'candle': return 'examine';
     default: return 'examine';
@@ -300,10 +300,11 @@ getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
-for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, `assets/props/${id}.png`);
+getImage('paper', 'assets/props/pentagram_scroll.png');
+for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.png`);
 
-let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
-let openChest = false, escaped = false, dead = false, deathFade = 0;
+let found = { iron_key: false, paper: false, green_potion: false };
+let openChest = false, escaped = false, dead = false, deathFade = 0, paperRevealed = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
@@ -327,7 +328,7 @@ function currentHotspots() { return gameState === 'dark' ? darkHotspots : litHot
 const ITEM_DEFS = {
   matchbox: { name: 'Krabička sirek', icon: 'assets/items/matchbox_open_inventory.png', desc: 'Otevřená krabička sirek. Uvnitř zbývá jen pár kousků.' },
   iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.' },
-  pentagram_scroll: { name: 'Svitek s runami', icon: 'assets/props/pentagram_scroll.png', desc: 'Pergamen popisuje pečeť, která povolí světlu uvězněnému v zeleném skle.' },
+  paper: { name: 'Popsaný pergamen', icon: 'assets/props/pentagram_scroll.png', desc: 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.' },
   green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.' }
 };
 let heldItem = null, prevInvKeys = [];
@@ -339,7 +340,7 @@ function selectItem(key) {
 function renderInventory() {
   const keys = [];
   if (matchTaken) keys.push('matchbox');
-  for (const k of ['iron_key', 'pentagram_scroll', 'green_potion']) if (found[k]) keys.push(k);
+  for (const k of ['iron_key', 'paper', 'green_potion']) if (found[k]) keys.push(k);
   invEl.innerHTML = '';
   for (const key of keys) {
     const el = document.createElement('div');
@@ -389,12 +390,12 @@ function inspect(id) {
     return;
   }
   if (id === 'shelf') {
-    if (!found.iron_key) { give('iron_key'); sayAtHero('Za starým grimoárem najdeš malý železný klíč.'); gesture('use', 1100); }
-    else { sayAtHero('Století prachu. Jedna kniha je teď podezřele lehká.'); gesture('examine'); }
+    if (!paperRevealed) { sayAtHero('Řady zaprášených svazků. Bez vodítka bych tu mohl pátrat donekonečna.'); gesture('examine'); }
+    else if (!found.iron_key) { give('iron_key'); sayAtHero('Jedna kniha se nehne, jako by ji svíral neviditelný zámek. Zatáhneš za hřbet — a za ní se skrývá starý železný klíč.'); gesture('use', 1100); }
+    else { sayAtHero('Za knihou už nic není, jen prázdná škvíra ve zdi.'); gesture('examine'); }
   }
   if (id === 'chest') {
-    if (!found.iron_key) { sayAtHero('Tlusté řetězy a železný zámek. Hodil by se klíč.'); gesture('use'); }
-    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('Klíč zaskřípe a otočí se! Uvnitř leží svitek s runami, šeptající o měsíčním světle uvězněném ve skle.'); gesture('use', 1100); }
+    if (!found.paper) { give('paper'); sayAtHero('Víko zavrže a povolí. Uvnitř leží jediný list pergamenu, popsaný podivnými, rozmazanými znaky.'); gesture('use', 1100); }
     else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
   if (id === 'rune') { sayAtHero('Pěticípá pečeť. Pod ní je vyryto: "Zelený plamen si pamatuje cestu."'); gesture('examine'); }
@@ -403,16 +404,25 @@ function inspect(id) {
     else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
   }
   if (id === 'window') {
+    if (heldItem === 'paper') {
+      if (!paperRevealed) {
+        paperRevealed = true;
+        ITEM_DEFS.paper.desc = 'Ve světle měsíce se mezi řádky objevilo skryté písmo: "Kniha, jež se nikdy neotevřela vlastní vůlí, ukrývá cestu ven."';
+        sayAtHero('Přiložíš pergamen k měsíčnímu svitu. Mezi řádky se jako stříbrná nit vyjeví skrytá slova: "Kniha, jež se nikdy neotevřela vlastní vůlí, ukrývá cestu ven."');
+        gesture('use', 1500);
+      } else { sayAtHero('Skrytá slova už znáš nazpaměť.'); gesture('examine'); }
+      return;
+    }
     if (gameState === 'dark') { sayAtHero('Vysoko na obloze visí úplněk a zalévá mříže studeným stříbrným svitem. Za oknem šumí vítr v korunách borovic — jinak panuje naprosté ticho noci.'); }
     else { sayAtHero('Měsíc stojí vysoko. Za mřížemi se ve větru komíhají černé jedle.'); }
     gesture('examine');
   }
   if (id === 'door') {
-    if (found.pentagram_scroll) {
+    if (found.iron_key) {
       escaped = true;
       gesture('use', 1800);
-      sayAtHero('Prstem obkreslíš runu do dřeva. Pečeť zazáří — dveře s cvaknutím povolí!');
-    } else { sayAtHero('Těžké dveře jsou zapečetěny starou magií.'); gesture('examine'); }
+      sayAtHero('Vložíš klíč do zámku. Těžký cvakot — dveře povolí!');
+    } else { sayAtHero('Těžké dveře jsou zamčené. Potřebuju klíč.'); gesture('examine'); }
   }
 }
 
@@ -542,8 +552,9 @@ requestAnimationFrame(frame);
 
 resetBtn.addEventListener('click', () => {
   playClick();
-  found = { iron_key: false, pentagram_scroll: false, green_potion: false };
-  openChest = false; escaped = false; dead = false; deathFade = 0;
+  found = { iron_key: false, paper: false, green_potion: false };
+  openChest = false; escaped = false; dead = false; deathFade = 0; paperRevealed = false;
+  ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   heldItem = null; prevInvKeys = []; stage.style.cursor = CURSORS.walk;
