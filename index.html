@@ -189,10 +189,10 @@ const CURSORS = {
 };
 /* while an item is held, the cursor itself becomes that item's icon */
 const HELD_CURSORS = {
-  matchbox: 'url("assets/cursors/held_matchbox.png") 32 32, auto',
-  iron_key: 'url("assets/cursors/held_iron_key.png") 32 32, auto',
-  pentagram_scroll: 'url("assets/cursors/held_pentagram_scroll.png") 32 32, auto',
-  green_potion: 'url("assets/cursors/held_green_potion.png") 32 32, auto'
+  matchbox: 'url("assets/cursors/held_matchbox.png") 38 38, auto',
+  iron_key: 'url("assets/cursors/held_iron_key.png") 38 38, auto',
+  pentagram_scroll: 'url("assets/cursors/held_pentagram_scroll.png") 38 38, auto',
+  green_potion: 'url("assets/cursors/held_green_potion.png") 38 38, auto'
 };
 stage.style.cursor = CURSORS.walk;
 function cursorForHotspot(h) {
@@ -303,7 +303,7 @@ for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImag
 for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, `assets/props/${id}.png`);
 
 let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
-let openChest = false, escaped = false;
+let openChest = false, escaped = false, dead = false, deathFade = 0;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
@@ -408,14 +408,35 @@ function inspect(id) {
     gesture('examine');
   }
   if (id === 'door') {
-    if (found.pentagram_scroll && found.green_potion) {
+    if (found.pentagram_scroll) {
       escaped = true;
       gesture('use', 1800);
-      sayAtHero('Prstem obkreslíš runu a poliješ klíčovou dírku elixírem. Pečeť zazáří — dveře s cvaknutím povolí!');
-    } else if (found.pentagram_scroll) { sayAtHero('Runa potřebuje k prolomení pečeti živou přísadu.'); gesture('examine'); }
-    else if (found.green_potion) { sayAtHero('Lektvar u klíčové dírky jiskří, ale žádné zaklínadlo nevede jeho sílu.'); gesture('examine'); }
-    else { sayAtHero('Těžké dveře jsou zapečetěny starou magií.'); gesture('examine'); }
+      sayAtHero('Prstem obkreslíš runu do dřeva. Pečeť zazáří — dveře s cvaknutím povolí!');
+    } else { sayAtHero('Těžké dveře jsou zapečetěny starou magií.'); gesture('examine'); }
   }
+}
+
+function examineSelf() {
+  sayAtHero('Hlava se mi točí a klouby bolí, jako bych tu byl vězněn celé týdny. Musím odsud pryč, než mě ta tma pohltí docela.');
+}
+
+function drinkPotion() {
+  if (dead || escaped) return;
+  heldItem = null; stage.style.cursor = CURSORS.walk; renderInventory();
+  gesture('use', 1400);
+  sayAtHero('Zvedneš lektvar k ústům a napiješ se.');
+  setTimeout(() => { if (!dead) sayAtHero('Hrdlem ti projede ledový oheň. Něco je špatně...'); }, 1700);
+  setTimeout(() => {
+    dead = true;
+    const startT = performance.now(), DUR = 1800;
+    function stepFade(t) {
+      deathFade = Math.min(1, (t - startT) / DUR);
+      if (deathFade < 1) requestAnimationFrame(stepFade);
+    }
+    requestAnimationFrame(stepFade);
+    fadeAudio(bgm, bgm.volume, 0, DUR);
+    fadeAudio(bgmDark, bgmDark.volume, 0, DUR);
+  }, 3400);
 }
 
 function goTo(x, y, onArrive = null) {
@@ -443,8 +464,11 @@ canvas.addEventListener('pointermove', ev => {
 canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); stage.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk; });
 canvas.addEventListener('click', ev => {
   playClick();
-  if (escaped) return;
+  if (escaped || dead) return;
   const [x, y] = point(ev), h = getHotspot(x, y);
+  const onHero = !h && Math.abs(x - hero.x) < 42 && y > hero.y - 140 && y < hero.y + 10;
+  if (onHero && heldItem === 'green_potion') { drinkPotion(); return; }
+  if (onHero) { gesture('examine'); examineSelf(); return; }
   if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
   else if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
   else if (y > 360) { hero.queued = null; heldItem = null; stage.style.cursor = CURSORS.walk; renderInventory(); goTo(x, y); }
@@ -495,6 +519,21 @@ function frame(now) {
     ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
     ctx.strokeStyle = '#bafa91'; ctx.lineWidth = 4; ctx.strokeRect(900, 99, 168, 373);
   }
+  if (deathFade > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${deathFade})`;
+    ctx.fillRect(0, 0, 1085, 566);
+    if (deathFade >= 1) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#9c2b23';
+      ctx.font = "52px 'VT323', monospace";
+      ctx.fillText('KONEC HRY', 542, 268);
+      ctx.fillStyle = '#8a7558';
+      ctx.font = "24px 'VT323', monospace";
+      ctx.fillText('Lektvar nebyl určen k pití.', 542, 308);
+      ctx.fillText('Klikni na ↺ pro nový pokus.', 542, 338);
+      ctx.textAlign = 'left';
+    }
+  }
   requestAnimationFrame(frame);
 }
 
@@ -504,7 +543,7 @@ requestAnimationFrame(frame);
 resetBtn.addEventListener('click', () => {
   playClick();
   found = { iron_key: false, pentagram_scroll: false, green_potion: false };
-  openChest = false; escaped = false;
+  openChest = false; escaped = false; dead = false; deathFade = 0;
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   heldItem = null; prevInvKeys = []; stage.style.cursor = CURSORS.walk;
