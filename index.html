@@ -19,10 +19,16 @@
     font-family: 'Press Start 2P', monospace;
     padding: 0;
   }
-  .screen-wrap {
-    position: relative;
+  .stage {
     width: 100vw;
     max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .screen-wrap {
+    position: relative;
+    width: 100%;
     aspect-ratio: 1085 / 566;
     overflow: hidden;
     background: #000;
@@ -74,25 +80,42 @@
   }
   .popup.show { opacity: 1; }
 
-  /* minimal inventory overlay, icons only */
-  .inventory {
-    position: absolute;
-    left: 2.5%; top: 88%;
+  /* inventory bar, below the full screen */
+  .inventory-bar {
+    width: 100%;
+    background: linear-gradient(#0e0b14, #050408);
+    border-top: 1px solid rgba(216,185,136,0.22);
+    padding: 10px 2.5%;
     display: flex;
-    gap: 6px;
-    z-index: 4;
+    align-items: center;
+    min-height: 5.5vw;
+  }
+  .inventory {
+    display: flex;
+    gap: 10px;
   }
   .slot {
-    width: 6.2%;
+    width: clamp(40px, 6.2vw, 64px);
     aspect-ratio: 1;
-    background: rgba(8,6,10,0.55);
-    border: 1px solid rgba(95,78,55,0.7);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(95,78,55,0.6);
     border-radius: 4px;
     display: grid;
     place-items: center;
+    transition: border-color .15s, box-shadow .15s;
   }
-  .slot.filled { background: rgba(8,6,10,0.78); }
-  .slot img { width: 65%; height: 65%; object-fit: contain; image-rendering: pixelated; }
+  .slot.filled { background: rgba(255,255,255,0.06); }
+  .slot.held {
+    border-color: #e4c479;
+    box-shadow: 0 0 8px rgba(228,196,121,0.7);
+  }
+  .slot img { width: 68%; height: 68%; object-fit: contain; image-rendering: pixelated; }
+  .slot img.pop-in { animation: popIn .32s cubic-bezier(.26,1.4,.4,1); }
+  @keyframes popIn {
+    0%   { transform: scale(0.15) translateY(8px); opacity: 0; }
+    65%  { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
 
   /* tiny unobtrusive icon controls, top-right */
   .controls {
@@ -120,23 +143,27 @@
 </head>
 <body>
 
-<div class="screen-wrap" id="screenWrap">
-  <canvas id="room" width="1085" height="566" aria-label="Prozkoumej kobku klikáním na podlahu nebo na předměty"></canvas>
-  <div id="hover" class="hover"></div>
-  <div id="popup" class="popup"></div>
-  <div class="inventory" id="inventory"></div>
-  <div class="controls">
-    <div class="ctrlbtn" id="muteBtn" title="Přepnout hudbu">♪</div>
-    <div class="ctrlbtn" id="resetBtn" title="Restartovat">↺</div>
+<div class="stage" id="stage">
+  <div class="screen-wrap" id="screenWrap">
+    <canvas id="room" width="1085" height="566" aria-label="Prozkoumej kobku klikáním na podlahu nebo na předměty"></canvas>
+    <div id="hover" class="hover"></div>
+    <div id="popup" class="popup"></div>
+    <div class="controls">
+      <div class="ctrlbtn" id="muteBtn" title="Přepnout hudbu">♪</div>
+      <div class="ctrlbtn" id="resetBtn" title="Restartovat">↺</div>
+    </div>
+    <audio id="bgm" loop preload="auto">
+      <source src="assets/music/whisper_under_stone_soundblaster.ogg" type="audio/ogg">
+      <source src="assets/music/whisper_under_stone_soundblaster.wav" type="audio/wav">
+    </audio>
+    <audio id="bgmDark" loop preload="auto">
+      <source src="assets/music/before_the_light_soft_soundblaster.ogg" type="audio/ogg">
+      <source src="assets/music/before_the_light_soft_soundblaster.wav" type="audio/wav">
+    </audio>
   </div>
-  <audio id="bgm" loop preload="auto">
-    <source src="assets/music/whisper_under_stone_soundblaster.ogg" type="audio/ogg">
-    <source src="assets/music/whisper_under_stone_soundblaster.wav" type="audio/wav">
-  </audio>
-  <audio id="bgmDark" loop preload="auto">
-    <source src="assets/music/before_the_light_soft_soundblaster.ogg" type="audio/ogg">
-    <source src="assets/music/before_the_light_soft_soundblaster.wav" type="audio/wav">
-  </audio>
+  <div class="inventory-bar">
+    <div class="inventory" id="inventory"></div>
+  </div>
 </div>
 
 <script>
@@ -196,15 +223,21 @@ function unlockAudio() {
 document.addEventListener('pointerdown', unlockAudio, { once: true });
 function playClick() {
   if (!actx || muted) return;
-  const t = actx.currentTime;
-  const osc = actx.createOscillator(), gain = actx.createGain();
-  osc.type = 'square';
-  osc.frequency.setValueAtTime(1500, t);
-  osc.frequency.exponentialRampToValueAtTime(500, t + 0.07);
-  gain.gain.setValueAtTime(0.16, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-  osc.connect(gain); gain.connect(actx.destination);
-  osc.start(t); osc.stop(t + 0.1);
+  const t = actx.currentTime, dur = 0.018;
+  const buf = actx.createBuffer(1, Math.ceil(actx.sampleRate * dur), actx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const noise = actx.createBufferSource();
+  noise.buffer = buf;
+  const filt = actx.createBiquadFilter();
+  filt.type = 'bandpass';
+  filt.frequency.value = 2600;
+  filt.Q.value = 0.7;
+  const gain = actx.createGain();
+  gain.gain.setValueAtTime(0.4, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  noise.connect(filt); filt.connect(gain); gain.connect(actx.destination);
+  noise.start(t); noise.stop(t + dur);
 }
 muteBtn.addEventListener('click', () => {
   muted = !muted;
@@ -266,12 +299,12 @@ for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, 
 let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
 let openChest = false, escaped = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
-const MATCH_POS = [700, 465], CANDLE_POS = [650, 538];
+const MATCH_POS = [230, 460], CANDLE_POS = [650, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
 
 const darkHotspots = [
-  { id: 'matchbox', title: 'Krabička sirek', box: [655, 432, 758, 498], to: [705, 540] },
+  { id: 'matchbox', title: 'Krabička sirek', box: [190, 420, 270, 495], to: [250, 540] },
   { id: 'candle', title: 'Nedohořelá svíce', box: [505, 245, 800, 410], to: [650, 538] }
 ];
 const litHotspots = [
@@ -290,6 +323,11 @@ const ITEM_DEFS = {
   pentagram_scroll: { name: 'Svitek s runami', icon: 'assets/props/pentagram_scroll.png', desc: 'Pergamen popisuje pečeť, která povolí světlu uvězněnému v zeleném skle.' },
   green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.' }
 };
+let heldItem = null, prevInvKeys = [];
+function selectItem(key) {
+  heldItem = (heldItem === key) ? null : key;
+  renderInventory();
+}
 function renderInventory() {
   const keys = [];
   if (matchTaken) keys.push('matchbox');
@@ -298,21 +336,25 @@ function renderInventory() {
   for (let i = 0; i < 4; i++) {
     const el = document.createElement('div');
     const key = keys[i];
-    el.className = 'slot' + (key ? ' filled' : '');
+    el.className = 'slot' + (key ? ' filled' : '') + (key && heldItem === key ? ' held' : '');
     if (key) {
       const def = ITEM_DEFS[key];
       const img = document.createElement('img');
       img.src = def.icon;
       img.alt = def.name;
+      img.title = def.name + ' — ' + def.desc;
+      if (!prevInvKeys.includes(key)) img.classList.add('pop-in');
       el.append(img);
-      el.style.cursor = CURSORS.talk;
-      el.addEventListener('click', (ev) => { playClick(); sayAtClient(ev.clientX, ev.clientY, def.desc); });
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (ev) => { ev.stopPropagation(); playClick(); selectItem(key); });
     }
     invEl.append(el);
   }
+  prevInvKeys = keys.slice();
 }
 
 function give(key) { found[key] = true; renderInventory(); }
+function useItemOn(hotspotId) { inspect(hotspotId); heldItem = null; renderInventory(); }
 function gesture(action, time = 850) { hero.action = action; hero.phase = 0; hero.actUntil = performance.now() + time; }
 
 function startLitTransition() {
@@ -387,15 +429,16 @@ canvas.addEventListener('pointermove', ev => {
   hover.style.top = (ev.clientY - r.top + 20) + 'px';
   hover.classList.toggle('show', !!h);
   if (h) hover.textContent = h.title;
-  screenWrap.style.cursor = CURSORS[cursorForHotspot(h)];
+  screenWrap.style.cursor = heldItem ? (h ? CURSORS.use : CURSORS.walk) : CURSORS[cursorForHotspot(h)];
 });
 canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); screenWrap.style.cursor = CURSORS.walk; });
 canvas.addEventListener('click', ev => {
   playClick();
   if (escaped) return;
   const [x, y] = point(ev), h = getHotspot(x, y);
-  if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
-  else if (y > 360) { hero.queued = null; goTo(x, y); }
+  if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
+  else if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
+  else if (y > 360) { hero.queued = null; heldItem = null; renderInventory(); goTo(x, y); }
   else if (gameState === 'dark') { gesture('examine'); sayAtHero('V té tmě nic nerozeznáš.'); }
   else { gesture('examine'); sayAtHero('Vlhké kamenné zdi jsou starší, než si kdokoliv živý pamatuje.'); }
 });
@@ -426,7 +469,9 @@ function frame(now) {
   }
   if (gameState === 'dark' && !matchTaken && images.matchbox?.complete && images.matchbox.naturalWidth) {
     const mW = 46, mH = 46 * (images.matchbox.naturalHeight / images.matchbox.naturalWidth);
+    ctx.globalAlpha = 0.22;
     ctx.drawImage(images.matchbox, MATCH_POS[0] - mW / 2, MATCH_POS[1] - mH / 2, mW, mH);
+    ctx.globalAlpha = 1;
   }
   ctx.fillStyle = 'rgba(0,0,0,.28)';
   ctx.beginPath(); ctx.ellipse(hero.x, hero.y - 2, 52, 9, 0, 0, Math.PI * 2); ctx.fill();
@@ -453,6 +498,7 @@ resetBtn.addEventListener('click', () => {
   openChest = false; escaped = false;
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
+  heldItem = null; prevInvKeys = [];
   popupEl.classList.remove('show');
   bgm.pause(); bgm.currentTime = 0;
   if (actx) { bgmDark.currentTime = 0; bgmDark.volume = muted ? 0 : 0.5; bgmDark.play().catch(() => {}); }
