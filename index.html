@@ -80,36 +80,35 @@
   }
   .popup.show { opacity: 1; }
 
-  /* inventory bar, below the full screen */
+  /* inventory bar, below the full screen: plain black, bare items, no boxes */
   .inventory-bar {
     width: 100%;
-    background: linear-gradient(#0e0b14, #050408);
-    border-top: 1px solid rgba(216,185,136,0.22);
-    padding: 10px 2.5%;
+    background: #000;
+    padding: 8px 2.5%;
     display: flex;
     align-items: center;
     min-height: 5.5vw;
   }
   .inventory {
     display: flex;
-    gap: 10px;
+    gap: 4px;
   }
   .slot {
     width: clamp(40px, 6.2vw, 64px);
     aspect-ratio: 1;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(95,78,55,0.6);
-    border-radius: 4px;
     display: grid;
     place-items: center;
-    transition: border-color .15s, box-shadow .15s;
+    cursor: pointer;
   }
-  .slot.filled { background: rgba(255,255,255,0.06); }
-  .slot.held {
-    border-color: #e4c479;
-    box-shadow: 0 0 8px rgba(228,196,121,0.7);
+  .slot img {
+    width: 92%; height: 92%;
+    object-fit: contain;
+    image-rendering: pixelated;
+    transition: filter .15s;
   }
-  .slot img { width: 68%; height: 68%; object-fit: contain; image-rendering: pixelated; }
+  .slot.held img {
+    filter: drop-shadow(0 0 5px #e4c479) drop-shadow(0 0 9px rgba(228,196,121,0.7));
+  }
   .slot img.pop-in { animation: popIn .32s cubic-bezier(.26,1.4,.4,1); }
   @keyframes popIn {
     0%   { transform: scale(0.15) translateY(8px); opacity: 0; }
@@ -333,21 +332,17 @@ function renderInventory() {
   if (matchTaken) keys.push('matchbox');
   for (const k of ['iron_key', 'pentagram_scroll', 'green_potion']) if (found[k]) keys.push(k);
   invEl.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
+  for (const key of keys) {
     const el = document.createElement('div');
-    const key = keys[i];
-    el.className = 'slot' + (key ? ' filled' : '') + (key && heldItem === key ? ' held' : '');
-    if (key) {
-      const def = ITEM_DEFS[key];
-      const img = document.createElement('img');
-      img.src = def.icon;
-      img.alt = def.name;
-      img.title = def.name + ' — ' + def.desc;
-      if (!prevInvKeys.includes(key)) img.classList.add('pop-in');
-      el.append(img);
-      el.style.cursor = 'pointer';
-      el.addEventListener('click', (ev) => { ev.stopPropagation(); playClick(); selectItem(key); });
-    }
+    el.className = 'slot' + (heldItem === key ? ' held' : '');
+    const def = ITEM_DEFS[key];
+    const img = document.createElement('img');
+    img.src = def.icon;
+    img.alt = def.name;
+    img.title = def.name + ' — ' + def.desc;
+    if (!prevInvKeys.includes(key)) img.classList.add('pop-in');
+    el.append(img);
+    el.addEventListener('click', (ev) => { ev.stopPropagation(); playClick(); selectItem(key); });
     invEl.append(el);
   }
   prevInvKeys = keys.slice();
@@ -469,7 +464,7 @@ function frame(now) {
   }
   if (gameState === 'dark' && !matchTaken && images.matchbox?.complete && images.matchbox.naturalWidth) {
     const mW = 46, mH = 46 * (images.matchbox.naturalHeight / images.matchbox.naturalWidth);
-    ctx.globalAlpha = 0.22;
+    ctx.globalAlpha = 0.09;
     ctx.drawImage(images.matchbox, MATCH_POS[0] - mW / 2, MATCH_POS[1] - mH / 2, mW, mH);
     ctx.globalAlpha = 1;
   }
