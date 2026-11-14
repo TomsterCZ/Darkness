@@ -187,6 +187,13 @@ const CURSORS = {
   talk: 'url("assets/cursors/talk.png") 30 28, auto',
   pickup: 'url("assets/cursors/pickup.png") 28 26, auto'
 };
+/* while an item is held, the cursor itself becomes that item's icon */
+const HELD_CURSORS = {
+  matchbox: 'url("assets/cursors/held_matchbox.png") 22 22, auto',
+  iron_key: 'url("assets/cursors/held_iron_key.png") 22 22, auto',
+  pentagram_scroll: 'url("assets/cursors/held_pentagram_scroll.png") 22 22, auto',
+  green_potion: 'url("assets/cursors/held_green_potion.png") 22 22, auto'
+};
 screenWrap.style.cursor = CURSORS.walk;
 function cursorForHotspot(h) {
   if (!h) return 'walk';
@@ -326,6 +333,7 @@ const ITEM_DEFS = {
 let heldItem = null, prevInvKeys = [];
 function selectItem(key) {
   heldItem = (heldItem === key) ? null : key;
+  screenWrap.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk;
   renderInventory();
 }
 function renderInventory() {
@@ -350,7 +358,7 @@ function renderInventory() {
 }
 
 function give(key) { found[key] = true; renderInventory(); }
-function useItemOn(hotspotId) { inspect(hotspotId); heldItem = null; renderInventory(); }
+function useItemOn(hotspotId) { inspect(hotspotId); heldItem = null; screenWrap.style.cursor = CURSORS.walk; renderInventory(); }
 function gesture(action, time = 850) { hero.action = action; hero.phase = 0; hero.actUntil = performance.now() + time; }
 
 function startLitTransition() {
@@ -429,16 +437,16 @@ canvas.addEventListener('pointermove', ev => {
   hover.style.top = (ev.clientY - r.top + 20) + 'px';
   hover.classList.toggle('show', !!h);
   if (h) hover.textContent = h.title;
-  screenWrap.style.cursor = heldItem ? (h ? CURSORS.use : CURSORS.walk) : CURSORS[cursorForHotspot(h)];
+  screenWrap.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS[cursorForHotspot(h)];
 });
-canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); screenWrap.style.cursor = CURSORS.walk; });
+canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); screenWrap.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk; });
 canvas.addEventListener('click', ev => {
   playClick();
   if (escaped) return;
   const [x, y] = point(ev), h = getHotspot(x, y);
   if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
   else if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
-  else if (y > 360) { hero.queued = null; heldItem = null; renderInventory(); goTo(x, y); }
+  else if (y > 360) { hero.queued = null; heldItem = null; screenWrap.style.cursor = CURSORS.walk; renderInventory(); goTo(x, y); }
   else if (gameState === 'dark') { gesture('examine'); sayAtHero('V té tmě nic nerozeznáš.'); }
   else { gesture('examine'); sayAtHero('Vlhké kamenné zdi jsou starší, než si kdokoliv živý pamatuje.'); }
 });
@@ -498,7 +506,7 @@ resetBtn.addEventListener('click', () => {
   openChest = false; escaped = false;
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
-  heldItem = null; prevInvKeys = [];
+  heldItem = null; prevInvKeys = []; screenWrap.style.cursor = CURSORS.walk;
   popupEl.classList.remove('show');
   bgm.pause(); bgm.currentTime = 0;
   if (actx) { bgmDark.currentTime = 0; bgmDark.volume = muted ? 0 : 0.5; bgmDark.play().catch(() => {}); }
