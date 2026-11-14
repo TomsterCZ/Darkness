@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Wizard's Cell</title>
+<title>Kobka čaroděje</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
@@ -124,13 +124,13 @@
 <body>
 
 <div class="screen-wrap" id="screenWrap">
-  <canvas id="room" width="1085" height="566" aria-label="Explore the dungeon by clicking the floor or objects"></canvas>
+  <canvas id="room" width="1085" height="566" aria-label="Prozkoumej kobku klikáním na podlahu nebo na předměty"></canvas>
   <div id="hover" class="hover"></div>
   <div id="popup" class="popup"></div>
   <div class="inventory" id="inventory"></div>
   <div class="controls">
-    <div class="ctrlbtn" id="muteBtn" title="Toggle music">♪</div>
-    <div class="ctrlbtn" id="resetBtn" title="Restart">↺</div>
+    <div class="ctrlbtn" id="muteBtn" title="Přepnout hudbu">♪</div>
+    <div class="ctrlbtn" id="resetBtn" title="Restartovat">↺</div>
   </div>
   <audio id="bgm" loop preload="auto">
     <source src="assets/music/whisper_under_stone_soundblaster.ogg" type="audio/ogg">
@@ -278,16 +278,16 @@ let hero = { x: 421, y: 545, destX: 421, destY: 545, action: 'idle', face: 'walk
 let last = 0;
 
 const hotspots = [
-  { id: 'shelf', title: 'Dusty books', box: [90, 110, 343, 424], to: [355, 541] },
-  { id: 'chest', title: 'Chained chest', box: [132, 421, 337, 554], to: [330, 548] },
-  { id: 'rune', title: 'Arcane diagram', box: [448, 144, 606, 266], to: [590, 537] },
-  { id: 'table', title: 'Alchemy table', box: [515, 270, 819, 470], to: [675, 538] },
-  { id: 'window', title: 'Barred window', box: [699, 61, 870, 256], to: [792, 538] },
-  { id: 'door', title: 'Locked cell door', box: [888, 80, 1074, 490], to: [918, 540] }
+  { id: 'shelf', title: 'Zaprášené knihy', box: [90, 110, 343, 424], to: [355, 541] },
+  { id: 'chest', title: 'Okovaná truhla', box: [132, 421, 337, 554], to: [330, 548] },
+  { id: 'rune', title: 'Tajemný diagram', box: [448, 144, 606, 266], to: [590, 537] },
+  { id: 'table', title: 'Alchymistický stůl', box: [515, 270, 819, 470], to: [675, 538] },
+  { id: 'window', title: 'Zamřížované okno', box: [699, 61, 870, 256], to: [792, 538] },
+  { id: 'door', title: 'Zamčené dveře cely', box: [888, 80, 1074, 490], to: [918, 540] }
 ];
 
 function renderInventory() {
-  const items = [['iron_key', 'Iron key'], ['pentagram_scroll', 'Rune scroll'], ['green_potion', 'Green potion']].filter(([key]) => found[key]);
+  const items = [['iron_key', 'Železný klíč'], ['pentagram_scroll', 'Svitek s runami'], ['green_potion', 'Zelený lektvar']].filter(([key]) => found[key]);
   invEl.innerHTML = '';
   for (let i = 0; i < 4; i++) {
     const el = document.createElement('div');
@@ -301,9 +301,9 @@ function renderInventory() {
       el.addEventListener('click', (ev) => {
         playClick();
         sayAtClient(ev.clientX, ev.clientY, {
-          iron_key: 'An iron key, still warm. Its teeth are shaped like tiny bones.',
-          pentagram_scroll: 'The parchment describes a seal that yields to light trapped in green glass.',
-          green_potion: 'Moonwort elixir. A drop makes old magic remember its purpose.'
+          iron_key: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.',
+          pentagram_scroll: 'Pergamen popisuje pečeť, která povolí světlu uvězněnému v zeleném skle.',
+          green_potion: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.'
         }[key]);
       });
     }
@@ -316,28 +316,28 @@ function gesture(action, time = 850) { hero.action = action; hero.phase = 0; her
 
 function inspect(id) {
   if (id === 'shelf') {
-    if (!found.iron_key) { give('iron_key'); sayAtHero('Behind an ancient grimoire you discover a small iron key.'); gesture('pick_up', 1100); }
-    else { sayAtHero('A century of dust. One book is suspiciously light now.'); gesture('examine'); }
+    if (!found.iron_key) { give('iron_key'); sayAtHero('Za starým grimoárem najdeš malý železný klíč.'); gesture('pick_up', 1100); }
+    else { sayAtHero('Století prachu. Jedna kniha je teď podezřele lehká.'); gesture('examine'); }
   }
   if (id === 'chest') {
-    if (!found.iron_key) { sayAtHero('Thick chains and an iron lock. A key would be useful.'); gesture('talk'); }
-    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('The key turns! A rune-covered scroll lies inside, whispering of bottled moonlight.'); gesture('pick_up', 1100); }
-    else { sayAtHero('Just some dry straw in the bottom now.'); gesture('examine'); }
+    if (!found.iron_key) { sayAtHero('Tlusté řetězy a železný zámek. Hodil by se klíč.'); gesture('talk'); }
+    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('Klíč zaskřípe a otočí se! Uvnitř leží svitek s runami, šeptající o měsíčním světle uvězněném ve skle.'); gesture('pick_up', 1100); }
+    else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
-  if (id === 'rune') { sayAtHero('A five-point seal. Scratched beneath it: "The green flame remembers the way."'); gesture('examine'); }
+  if (id === 'rune') { sayAtHero('Pěticípá pečeť. Pod ní je vyryto: "Zelený plamen si pamatuje cestu."'); gesture('examine'); }
   if (id === 'table') {
-    if (!found.green_potion) { give('green_potion'); sayAtHero('The green potion hums when touched. You pocket the moonwort elixir.'); gesture('pick_up', 1150); }
-    else { sayAtHero('The empty table smells of rosemary and something far less wholesome.'); gesture('examine'); }
+    if (!found.green_potion) { give('green_potion'); sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('pick_up', 1150); }
+    else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
   }
-  if (id === 'window') { sayAtHero('The moon is high. Beyond the bars, black fir trees sway in the wind.'); gesture('examine'); }
+  if (id === 'window') { sayAtHero('Měsíc stojí vysoko. Za mřížemi se ve větru komíhají černé jedle.'); gesture('examine'); }
   if (id === 'door') {
     if (found.pentagram_scroll && found.green_potion) {
       escaped = true;
       gesture('talk', 1800);
-      sayAtHero('You trace the rune and pour the elixir over the keyhole. The seal glows — the door clicks open!');
-    } else if (found.pentagram_scroll) { sayAtHero('The rune needs a living reagent to break the seal.'); gesture('examine'); }
-    else if (found.green_potion) { sayAtHero('The potion sparks against the keyhole, but no spell guides its power.'); gesture('examine'); }
-    else { sayAtHero('The heavy door is sealed by old magic.'); gesture('examine'); }
+      sayAtHero('Prstem obkreslíš runu a poliješ klíčovou dírku elixírem. Pečeť zazáří — dveře s cvaknutím povolí!');
+    } else if (found.pentagram_scroll) { sayAtHero('Runa potřebuje k prolomení pečeti živou přísadu.'); gesture('examine'); }
+    else if (found.green_potion) { sayAtHero('Lektvar u klíčové dírky jiskří, ale žádné zaklínadlo nevede jeho sílu.'); gesture('examine'); }
+    else { sayAtHero('Těžké dveře jsou zapečetěny starou magií.'); gesture('examine'); }
   }
 }
 
@@ -369,7 +369,7 @@ canvas.addEventListener('click', ev => {
   const [x, y] = point(ev), h = getHotspot(x, y);
   if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
   else if (y > 360) { hero.queued = null; goTo(x, y); }
-  else { gesture('examine'); sayAtHero('The damp stone walls are older than anyone living remembers.'); }
+  else { gesture('examine'); sayAtHero('Vlhké kamenné zdi jsou starší, než si kdokoliv živý pamatuje.'); }
 });
 
 function frame(now) {
