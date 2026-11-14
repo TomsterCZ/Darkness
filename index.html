@@ -298,13 +298,14 @@ for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, 
 let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
 let openChest = false, escaped = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
-const MATCH_POS = [230, 460], CANDLE_POS = [650, 538];
+const MATCH_POS = [230, 460], CANDLE_POS = [490, 540];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
 
 const darkHotspots = [
   { id: 'matchbox', title: 'Krabička sirek', box: [190, 420, 270, 495], to: [250, 540] },
-  { id: 'candle', title: 'Nedohořelá svíce', box: [505, 245, 800, 410], to: [650, 538] }
+  { id: 'candle', title: 'Nedohořelá svíce', box: [472, 150, 506, 232], to: [490, 540] },
+  { id: 'window', title: 'Zamřížované okno', box: [699, 61, 870, 256], to: [792, 538] }
 ];
 const litHotspots = [
   { id: 'shelf', title: 'Zaprášené knihy', box: [90, 110, 343, 424], to: [355, 541] },
@@ -392,7 +393,11 @@ function inspect(id) {
     if (!found.green_potion) { give('green_potion'); sayAtHero('Zelený lektvar při doteku tiše hučí. Schováš si elixír měsíčního kořene do kapsy.'); gesture('use', 1150); }
     else { sayAtHero('Prázdný stůl voní rozmarýnem a něčím mnohem méně příjemným.'); gesture('examine'); }
   }
-  if (id === 'window') { sayAtHero('Měsíc stojí vysoko. Za mřížemi se ve větru komíhají černé jedle.'); gesture('examine'); }
+  if (id === 'window') {
+    if (gameState === 'dark') { sayAtHero('Vysoko na obloze visí úplněk a zalévá mříže studeným stříbrným svitem. Za oknem šumí vítr v korunách borovic — jinak panuje naprosté ticho noci.'); }
+    else { sayAtHero('Měsíc stojí vysoko. Za mřížemi se ve větru komíhají černé jedle.'); }
+    gesture('examine');
+  }
   if (id === 'door') {
     if (found.pentagram_scroll && found.green_potion) {
       escaped = true;
