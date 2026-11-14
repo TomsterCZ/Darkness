@@ -304,7 +304,7 @@ getImage('paper', 'assets/props/pentagram_scroll.png');
 for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.png`);
 
 let found = { iron_key: false, paper: false, green_potion: false };
-let openChest = false, escaped = false, dead = false, deathFade = 0, paperRevealed = false;
+let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
@@ -438,10 +438,12 @@ function drinkPotion() {
   setTimeout(() => { if (!dead) sayAtHero('Hrdlem ti projede ledový oheň. Něco je špatně...'); }, 1700);
   setTimeout(() => {
     dead = true;
-    const startT = performance.now(), DUR = 1800;
+    const startT = performance.now(), DUR = 2200;
     function stepFade(t) {
-      deathFade = Math.min(1, (t - startT) / DUR);
-      if (deathFade < 1) requestAnimationFrame(stepFade);
+      const p = Math.min(1, (t - startT) / DUR);
+      poisonFade = Math.min(1, p / 0.35);
+      deathFade = Math.max(0, (p - 0.3) / 0.7);
+      if (p < 1) requestAnimationFrame(stepFade);
     }
     requestAnimationFrame(stepFade);
     fadeAudio(bgm, bgm.volume, 0, DUR);
@@ -476,7 +478,7 @@ canvas.addEventListener('click', ev => {
   playClick();
   if (escaped || dead) return;
   const [x, y] = point(ev), h = getHotspot(x, y);
-  const onHero = !h && Math.abs(x - hero.x) < 42 && y > hero.y - 140 && y < hero.y + 10;
+  const onHero = !h && Math.abs(x - hero.x) < 105 && y > hero.y - 240 && y < hero.y + 10;
   if (onHero && heldItem === 'green_potion') { drinkPotion(); return; }
   if (onHero) { gesture('examine'); examineSelf(); return; }
   if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
@@ -529,6 +531,10 @@ function frame(now) {
     ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
     ctx.strokeStyle = '#bafa91'; ctx.lineWidth = 4; ctx.strokeRect(900, 99, 168, 373);
   }
+  if (poisonFade > 0) {
+    ctx.fillStyle = `rgba(45,210,100,${poisonFade * 0.6})`;
+    ctx.fillRect(0, 0, 1085, 566);
+  }
   if (deathFade > 0) {
     ctx.fillStyle = `rgba(0,0,0,${deathFade})`;
     ctx.fillRect(0, 0, 1085, 566);
@@ -553,7 +559,7 @@ requestAnimationFrame(frame);
 resetBtn.addEventListener('click', () => {
   playClick();
   found = { iron_key: false, paper: false, green_potion: false };
-  openChest = false; escaped = false; dead = false; deathFade = 0; paperRevealed = false;
+  openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false;
   ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
