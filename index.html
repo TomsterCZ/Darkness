@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Wizard's Cell</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    min-height: 100vh;
+    background: #05040a;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Press Start 2P', monospace;
+    padding: 0;
+  }
+  .screen-wrap {
+    position: relative;
+    width: 100vw;
+    max-width: 1200px;
+    aspect-ratio: 1085 / 566;
+    overflow: hidden;
+    background: #000;
+    cursor: none;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  /* mouse-following hotspot tooltip */
+  .hover {
+    position: absolute;
+    left: 0; top: 0;
+    padding: 4px 8px;
+    font-size: 8px;
+    color: #fff4d1;
+    background: rgba(8,6,10,0.88);
+    border: 1px solid #5f4e37;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity .12s;
+    pointer-events: none;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    z-index: 6;
+  }
+  .hover.show { opacity: 1; }
+
+  /* floating dialogue popup, replaces the old fixed text bar */
+  .popup {
+    position: absolute;
+    max-width: 46%;
+    background: rgba(8,6,10,0.92);
+    border: 1px solid #5f4e37;
+    border-radius: 5px;
+    color: #eadfc0;
+    font-size: 9px;
+    line-height: 1.7;
+    padding: 9px 12px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -100%);
+    transition: opacity .25s ease;
+    z-index: 5;
+  }
+  .popup::after {
+    content: '';
+    position: absolute;
+    left: 50%; top: 100%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #5f4e37;
+  }
+  .popup.show { opacity: 1; }
+
+  /* minimal inventory overlay, icons only */
+  .inventory {
+    position: absolute;
+    left: 2.5%; top: 88%;
+    display: flex;
+    gap: 6px;
+    z-index: 4;
+  }
+  .slot {
+    width: 6.2%;
+    aspect-ratio: 1;
+    background: rgba(8,6,10,0.55);
+    border: 1px solid rgba(95,78,55,0.7);
+    border-radius: 4px;
+    display: grid;
+    place-items: center;
+    cursor: none;
+  }
+  .slot.filled { background: rgba(8,6,10,0.78); }
+  .slot img { width: 65%; height: 65%; object-fit: contain; image-rendering: pixelated; }
+
+  /* tiny unobtrusive icon controls, top-right */
+  .controls {
+    position: absolute;
+    right: 2%; top: 3%;
+    display: flex;
+    gap: 8px;
+    z-index: 6;
+  }
+  .ctrlbtn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: rgba(8,6,10,0.5);
+    border: 1px solid rgba(95,78,55,0.6);
+    color: #d8b988;
+    font-size: 12px;
+    display: grid;
+    place-items: center;
+    cursor: none;
+    opacity: 0.45;
+    transition: opacity .2s;
+  }
+  .ctrlbtn:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="screen-wrap" id="screenWrap">
+  <canvas id="room" width="1085" height="566" aria-label="Explore the dungeon by clicking the floor or objects"></canvas>
+  <div id="hover" class="hover"></div>
+  <div id="popup" class="popup"></div>
+  <div class="inventory" id="inventory"></div>
+  <div class="controls">
+    <div class="ctrlbtn" id="muteBtn" title="Toggle music">♪</div>
+    <div class="ctrlbtn" id="resetBtn" title="Restart">↺</div>
+  </div>
+  <audio id="bgm" loop preload="auto">
+    <source src="assets/music/whisper_under_stone_soundblaster.ogg" type="audio/ogg">
+    <source src="assets/music/whisper_under_stone_soundblaster.wav" type="audio/wav">
+  </audio>
+</div>
+
+<script>
+(() => {
+'use strict';
+const screenWrap = document.querySelector('#screenWrap');
+const canvas = document.querySelector('#room'), ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const hover = document.querySelector('#hover');
+const popupEl = document.querySelector('#popup');
+const invEl = document.querySelector('#inventory');
+const bgm = document.querySelector('#bgm');
+const muteBtn = document.querySelector('#muteBtn');
+const resetBtn = document.querySelector('#resetBtn');
+
+/* ---------- pixel-art hand / fist cursor ---------- */
+function cursorDataUri(rows, hotspot) {
+  let rects = '';
+  rows.forEach((row, y) => {
+    row.padEnd(16, '.').slice(0, 16).split('').forEach((ch, x) => {
+      const fill = ch === 'o' ? '#1c120b' : ch === 's' ? '#e9c99a' : null;
+      if (fill) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${fill}"/>`;
+    });
+  });
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${hotspot[0]} ${hotspot[1]}, pointer`;
+}
+const HAND = [
+  "......oo........",
+  "......os........",
+  "......os........",
+  "......os........",
+  "......os........",
+  "....oooooo......",
+  "...osssssso.....",
+  "..osssssssoo....",
+  "..osssssssso....",
+  "..osssssssso....",
+  "..osssssssso....",
+  "...osssssoo.....",
+  "....oooooo......",
+  ".................",
+  ".................",
+  "................."
+];
+const FIST = [
+  ".................",
+  ".................",
+  ".................",
+  ".................",
+  ".................",
+  "....oooooo......",
+  "...osssssso.....",
+  "..osssssssoo....",
+  "..osssssssso....",
+  "..osssssssso....",
+  "..osssssssso....",
+  "...osssssoo.....",
+  "....oooooo......",
+  ".................",
+  ".................",
+  "................."
+];
+const handCursor = cursorDataUri(HAND, [7, 6]);
+const fistCursor = cursorDataUri(FIST, [7, 6]);
+screenWrap.style.cursor = handCursor;
+screenWrap.addEventListener('pointerdown', () => { screenWrap.style.cursor = fistCursor; });
+window.addEventListener('pointerup', () => { screenWrap.style.cursor = handCursor; });
+
+/* ---------- audio: looping theme + synthesized click blips ---------- */
+let actx = null, muted = false;
+function unlockAudio() {
+  if (actx) return;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+  bgm.volume = 0.55;
+  bgm.play().catch(() => {});
+}
+document.addEventListener('pointerdown', unlockAudio, { once: true });
+function playClick() {
+  if (!actx || muted) return;
+  const t = actx.currentTime;
+  const osc = actx.createOscillator(), gain = actx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(1500, t);
+  osc.frequency.exponentialRampToValueAtTime(500, t + 0.07);
+  gain.gain.setValueAtTime(0.16, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+  osc.connect(gain); gain.connect(actx.destination);
+  osc.start(t); osc.stop(t + 0.1);
+}
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  bgm.muted = muted;
+  muteBtn.style.opacity = muted ? '0.25' : '0.45';
+  muteBtn.textContent = muted ? '♪̸' : '♪';
+});
+
+/* ---------- floating popup bubble (replaces the fixed text bar) ---------- */
+let popupTimer = null;
+function popupAtPercent(xPct, yPct, text) {
+  xPct = Math.max(8, Math.min(92, xPct));
+  yPct = Math.max(8, Math.min(92, yPct));
+  popupEl.style.left = xPct + '%';
+  popupEl.style.top = yPct + '%';
+  popupEl.textContent = text;
+  popupEl.classList.add('show');
+  clearTimeout(popupTimer);
+  popupTimer = setTimeout(() => popupEl.classList.remove('show'), Math.max(2600, text.length * 48));
+}
+function sayAtHero(text) {
+  popupAtPercent(hero.x / 1085 * 100, (hero.y - 300) / 566 * 100, text);
+}
+function sayAtClient(clientX, clientY, text) {
+  const r = screenWrap.getBoundingClientRect();
+  popupAtPercent((clientX - r.left) / r.width * 100, (clientY - r.top) / r.height * 100 - 6, text);
+}
+
+/* ---------- game state ---------- */
+const aCount = { walk_right: 5, walk_left: 5, idle: 4, examine: 3, talk: 4, pick_up: 4 };
+const frameMs = { walk_right: 130, walk_left: 130, idle: 250, examine: 220, talk: 250, pick_up: 220 };
+
+let images = {};
+const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
+getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
+for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
+for (const id of ['iron_key', 'pentagram_scroll', 'green_potion']) getImage(id, `assets/props/${id}.png`);
+
+let found = { iron_key: false, pentagram_scroll: false, green_potion: false };
+let openChest = false, escaped = false;
+let hero = { x: 421, y: 545, destX: 421, destY: 545, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
+let last = 0;
+
+const hotspots = [
+  { id: 'shelf', title: 'Dusty books', box: [90, 110, 343, 424], to: [355, 541] },
+  { id: 'chest', title: 'Chained chest', box: [132, 421, 337, 554], to: [330, 548] },
+  { id: 'rune', title: 'Arcane diagram', box: [448, 144, 606, 266], to: [590, 537] },
+  { id: 'table', title: 'Alchemy table', box: [515, 270, 819, 470], to: [675, 538] },
+  { id: 'window', title: 'Barred window', box: [699, 61, 870, 256], to: [792, 538] },
+  { id: 'door', title: 'Locked cell door', box: [888, 80, 1074, 490], to: [918, 540] }
+];
+
+function renderInventory() {
+  const items = [['iron_key', 'Iron key'], ['pentagram_scroll', 'Rune scroll'], ['green_potion', 'Green potion']].filter(([key]) => found[key]);
+  invEl.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const el = document.createElement('div');
+    el.className = 'slot' + (items[i] ? ' filled' : '');
+    if (items[i]) {
+      const [key, name] = items[i];
+      const img = document.createElement('img');
+      img.src = `assets/props/${key}.png`;
+      img.alt = name;
+      el.append(img);
+      el.addEventListener('click', (ev) => {
+        playClick();
+        sayAtClient(ev.clientX, ev.clientY, {
+          iron_key: 'An iron key, still warm. Its teeth are shaped like tiny bones.',
+          pentagram_scroll: 'The parchment describes a seal that yields to light trapped in green glass.',
+          green_potion: 'Moonwort elixir. A drop makes old magic remember its purpose.'
+        }[key]);
+      });
+    }
+    invEl.append(el);
+  }
+}
+
+function give(key) { found[key] = true; renderInventory(); }
+function gesture(action, time = 850) { hero.action = action; hero.phase = 0; hero.actUntil = performance.now() + time; }
+
+function inspect(id) {
+  if (id === 'shelf') {
+    if (!found.iron_key) { give('iron_key'); sayAtHero('Behind an ancient grimoire you discover a small iron key.'); gesture('pick_up', 1100); }
+    else { sayAtHero('A century of dust. One book is suspiciously light now.'); gesture('examine'); }
+  }
+  if (id === 'chest') {
+    if (!found.iron_key) { sayAtHero('Thick chains and an iron lock. A key would be useful.'); gesture('talk'); }
+    else if (!openChest) { openChest = true; give('pentagram_scroll'); sayAtHero('The key turns! A rune-covered scroll lies inside, whispering of bottled moonlight.'); gesture('pick_up', 1100); }
+    else { sayAtHero('Just some dry straw in the bottom now.'); gesture('examine'); }
+  }
+  if (id === 'rune') { sayAtHero('A five-point seal. Scratched beneath it: "The green flame remembers the way."'); gesture('examine'); }
+  if (id === 'table') {
+    if (!found.green_potion) { give('green_potion'); sayAtHero('The green potion hums when touched. You pocket the moonwort elixir.'); gesture('pick_up', 1150); }
+    else { sayAtHero('The empty table smells of rosemary and something far less wholesome.'); gesture('examine'); }
+  }
+  if (id === 'window') { sayAtHero('The moon is high. Beyond the bars, black fir trees sway in the wind.'); gesture('examine'); }
+  if (id === 'door') {
+    if (found.pentagram_scroll && found.green_potion) {
+      escaped = true;
+      gesture('talk', 1800);
+      sayAtHero('You trace the rune and pour the elixir over the keyhole. The seal glows — the door clicks open!');
+    } else if (found.pentagram_scroll) { sayAtHero('The rune needs a living reagent to break the seal.'); gesture('examine'); }
+    else if (found.green_potion) { sayAtHero('The potion sparks against the keyhole, but no spell guides its power.'); gesture('examine'); }
+    else { sayAtHero('The heavy door is sealed by old magic.'); gesture('examine'); }
+  }
+}
+
+function goTo(x, y, onArrive = null) {
+  hero.destX = Math.max(80, Math.min(1010, x));
+  hero.destY = Math.max(510, Math.min(548, y));
+  hero.queued = onArrive;
+  if (Math.hypot(hero.destX - hero.x, hero.destY - hero.y) < 4) { const cb = hero.queued; hero.queued = null; if (cb) cb(); }
+}
+
+function point(ev) {
+  const r = canvas.getBoundingClientRect();
+  return [(ev.clientX - r.left) / r.width * 1085, (ev.clientY - r.top) / r.height * 566];
+}
+function getHotspot(x, y) { return hotspots.find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
+
+canvas.addEventListener('pointermove', ev => {
+  const [x, y] = point(ev), h = getHotspot(x, y);
+  const r = screenWrap.getBoundingClientRect();
+  hover.style.left = (ev.clientX - r.left + 16) + 'px';
+  hover.style.top = (ev.clientY - r.top + 20) + 'px';
+  hover.classList.toggle('show', !!h);
+  if (h) hover.textContent = h.title;
+});
+canvas.addEventListener('pointerleave', () => hover.classList.remove('show'));
+canvas.addEventListener('click', ev => {
+  playClick();
+  if (escaped) return;
+  const [x, y] = point(ev), h = getHotspot(x, y);
+  if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
+  else if (y > 360) { hero.queued = null; goTo(x, y); }
+  else { gesture('examine'); sayAtHero('The damp stone walls are older than anyone living remembers.'); }
+});
+
+function frame(now) {
+  const dt = Math.min((now - (last || now)) / 1000, 0.055);
+  last = now;
+  const dx = hero.destX - hero.x, dy = hero.destY - hero.y, dist = Math.hypot(dx, dy);
+  if (dist > 1.6) {
+    hero.face = dx >= 0 ? 'walk_right' : 'walk_left';
+    hero.action = hero.face;
+    const step = Math.min(dist, 185 * dt);
+    hero.x += dx / dist * step; hero.y += dy / dist * step;
+    hero.phase += dt * 1000;
+  } else if (hero.queued) {
+    const cb = hero.queued; hero.queued = null; hero.action = 'idle'; cb();
+  } else if (now > hero.actUntil) {
+    if (hero.action !== 'idle') hero.phase = 0;
+    hero.action = 'idle'; hero.phase += dt * 1000;
+  } else { hero.phase += dt * 1000; }
+
+  ctx.clearRect(0, 0, 1085, 566);
+  if (images.room?.complete && images.room.naturalWidth) ctx.drawImage(images.room, 0, 0);
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(hero.x, hero.y - 2, 52, 9, 0, 0, Math.PI * 2); ctx.fill();
+  const f = Math.floor(hero.phase / frameMs[hero.action]) % aCount[hero.action];
+  const img = images[`${hero.action}_${f}`] || images.idle_0;
+  if (img?.complete && img.naturalWidth) {
+    const scale = 2.83, W = img.naturalWidth * scale, H = img.naturalHeight * scale;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - 105 * scale), W, H);
+  }
+  if (escaped) {
+    ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
+    ctx.strokeStyle = '#bafa91'; ctx.lineWidth = 4; ctx.strokeRect(900, 99, 168, 373);
+  }
+  requestAnimationFrame(frame);
+}
+
+renderInventory();
+requestAnimationFrame(frame);
+
+resetBtn.addEventListener('click', () => {
+  playClick();
+  found = { iron_key: false, pentagram_scroll: false, green_potion: false };
+  openChest = false; escaped = false;
+  hero = { x: 421, y: 545, destX: 421, destY: 545, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
+  popupEl.classList.remove('show');
+  renderInventory();
+});
+})();
+</script>
+
+</body>
+</html>
