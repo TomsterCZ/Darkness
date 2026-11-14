@@ -292,20 +292,49 @@ function playChestOpen() {
 }
 function playDeathSound() {
   if (!actx || muted) return;
-  const t = actx.currentTime, dur = 1.9;
-  const osc = actx.createOscillator(), gain = actx.createGain();
-  osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(180, t);
-  osc.frequency.exponentialRampToValueAtTime(35, t + dur);
-  const filt = actx.createBiquadFilter();
-  filt.type = 'lowpass';
-  filt.frequency.setValueAtTime(1200, t);
-  filt.frequency.exponentialRampToValueAtTime(90, t + dur);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.3, t + 0.15);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-  osc.connect(filt); filt.connect(gain); gain.connect(actx.destination);
-  osc.start(t); osc.stop(t + dur);
+  const t = actx.currentTime;
+  // dissonant descending drone: two detuned saws beating against each other
+  const dur = 2.5;
+  const lp = actx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.setValueAtTime(900, t);
+  lp.frequency.exponentialRampToValueAtTime(110, t + dur * 0.85);
+  const dGain = actx.createGain();
+  dGain.gain.setValueAtTime(0.0001, t);
+  dGain.gain.exponentialRampToValueAtTime(0.22, t + 0.2);
+  dGain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  dGain.connect(lp); lp.connect(actx.destination);
+  [96, 101].forEach(f0 => {
+    const o = actx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.42, t + dur);
+    o.connect(dGain);
+    o.start(t); o.stop(t + dur + 0.05);
+  });
+  // sub-bass weight underneath
+  const sub = actx.createOscillator(), subGain = actx.createGain();
+  sub.type = 'sine';
+  sub.frequency.setValueAtTime(58, t);
+  sub.frequency.exponentialRampToValueAtTime(26, t + dur * 0.8);
+  subGain.gain.setValueAtTime(0.0001, t);
+  subGain.gain.exponentialRampToValueAtTime(0.5, t + 0.12);
+  subGain.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.9);
+  sub.connect(subGain); subGain.connect(actx.destination);
+  sub.start(t); sub.stop(t + dur);
+  // sharp noise sting at the instant of impact
+  const stingDur = 0.4;
+  const sBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * stingDur), actx.sampleRate);
+  const sData = sBuf.getChannelData(0);
+  for (let i = 0; i < sData.length; i++) sData[i] = (Math.random() * 2 - 1) * (1 - i / sData.length);
+  const sting = actx.createBufferSource(); sting.buffer = sBuf;
+  const sFilt = actx.createBiquadFilter();
+  sFilt.type = 'bandpass'; sFilt.frequency.setValueAtTime(2200, t); sFilt.Q.value = 3.5;
+  const sGain = actx.createGain();
+  sGain.gain.setValueAtTime(0.3, t);
+  sGain.gain.exponentialRampToValueAtTime(0.0001, t + stingDur);
+  sting.connect(sFilt); sFilt.connect(sGain); sGain.connect(actx.destination);
+  sting.start(t); sting.stop(t + stingDur);
 }
 muteBtn.addEventListener('click', () => {
   muted = !muted;
@@ -361,7 +390,7 @@ const getImage = (key, src) => { const img = new Image(); images[key] = img; img
 getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
 getImage('roomNoPotion', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('chestOpen', 'assets/props/chest_open.png');
-const CHEST_OPEN_POS = { x: 143, y: 362, w: 195, h: 190 };
+const CHEST_OPEN_POS = { x: 90, y: 295, w: 255, h: 271 };
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -399,11 +428,13 @@ const ITEM_DEFS = {
 };
 let heldItem = null, prevInvKeys = [];
 function selectItem(key) {
+  if (dead || escaped) return;
   heldItem = (heldItem === key) ? null : key;
   stage.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk;
   renderInventory();
 }
 function renderInventory() {
+  if (dead) { invEl.innerHTML = ''; return; }
   const keys = [];
   if (matchTaken) keys.push('matchbox');
   for (const k of ['iron_key', 'paper', 'green_potion']) if (found[k]) keys.push(k);
@@ -533,6 +564,9 @@ function drinkPotion() {
   setTimeout(() => { if (!dead) sayAtHero('Hrdlem ti projede ledový oheň. Něco je špatně...'); }, 1700);
   setTimeout(() => {
     dead = true;
+    heldItem = null;
+    stage.style.cursor = CURSORS.walk;
+    renderInventory();
     playDeathSound();
     const startT = performance.now(), DUR = 2200;
     function stepFade(t) {
@@ -563,6 +597,7 @@ function isOnHero(x, y) { return Math.abs(x - hero.x) < 105 && y > hero.y - 240 
 
 const HERO_NAME = 'Zubožený žalářník';
 canvas.addEventListener('pointermove', ev => {
+  if (dead) { hover.classList.remove('show'); stage.style.cursor = 'default'; return; }
   const [x, y] = point(ev), h = getHotspot(x, y), onHero = !h && isOnHero(x, y);
   hover.classList.toggle('show', !!h || onHero);
   if (h) hover.textContent = h.title;
@@ -571,7 +606,7 @@ canvas.addEventListener('pointermove', ev => {
   else if (onHero) stage.style.cursor = CURSORS.examine;
   else stage.style.cursor = CURSORS[cursorForHotspot(h)];
 });
-canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); stage.style.cursor = heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk; });
+canvas.addEventListener('pointerleave', () => { hover.classList.remove('show'); stage.style.cursor = dead ? 'default' : (heldItem ? HELD_CURSORS[heldItem] : CURSORS.walk); });
 canvas.addEventListener('click', ev => {
   playClick();
   if (escaped || dead) return;
