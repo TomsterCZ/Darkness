@@ -35,17 +35,16 @@
     image-rendering: pixelated;
   }
 
-  /* mouse-following hotspot tooltip */
+  /* mouse-following hotspot tooltip — frameless, matches the dialogue text */
   .hover {
     position: absolute;
     left: 0; top: 0;
-    padding: 3px 9px;
     font-family: 'VT323', monospace;
-    font-size: 17px;
-    color: #fff4d1;
-    background: rgba(8,6,10,0.88);
-    border: 1px solid #5f4e37;
-    border-radius: 3px;
+    font-size: 22px;
+    color: #f3e3b8;
+    text-shadow:
+      2px 0 0 #000, -2px 0 0 #000, 0 2px 0 #000, 0 -2px 0 #000,
+      2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
     opacity: 0;
     transition: opacity .12s;
     pointer-events: none;
