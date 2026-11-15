@@ -393,8 +393,8 @@ const getImage = (key, src) => { const img = new Image(); images[key] = img; img
    and two mutually exclusive transparent chest objects. */
 getImage('room', 'assets/scene/room_without_chest.jpg');
 getImage('roomShift', 'assets/scene/room_bookshelf_open.jpg');
-getImage('chestClosed', 'assets/props/chest_closed_isolated.png');
-getImage('chestOpened', 'assets/props/chest_open_isolated.png');
+getImage('chestClosed', 'assets/props/chest_closed_pixel.png');
+getImage('chestOpened', 'assets/props/chest_open_pixel.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 function paintChest(ctx) {
@@ -542,28 +542,22 @@ function playBookcaseMechanism() {
   src.start(t + .30); src.stop(t + 2.9);
 }
 function rotateBookcase() {
-  if (shelfOpening || shelfOpened) return;
-  shelfOpening = true; playBookcaseMechanism(); gesture('use', 2750);
-  sayAtHero('Zatáhneš za knihu. Něco cvakne — celá knihovna se s hlubokým skřípěním otáčí...');
-  const epoch = animationEpoch, start = performance.now(), duration = 2700;
-  function tick(now) {
-    if (epoch !== animationEpoch) return;
-    const k = Math.min(1, (now - start) / duration);
-    shelfMix = k * k * (3 - 2 * k);
-    if (k < 1) requestAnimationFrame(tick);
-    else { shelfOpened = true; shelfOpening = false;
-      sayAtHero('Za policemi se otevírá tajná chodba. Z hlubin táhne chladný vzduch.');
-    }
-  }
-  requestAnimationFrame(tick);
+  if(shelfOpening||shelfOpened)return;
+  shelfOpening=true;playBookcaseMechanism();gesture('use',1450);
+  sayAtHero('Zámek cvakne. Celá knihovna s hlubokým zaduněním povoluje...');
+  const epoch=animationEpoch;
+  setTimeout(()=>{
+    if(epoch!==animationEpoch)return;
+    shelfMix=1;shelfOpened=true;shelfOpening=false;
+    sayAtHero('Za knihovnou se objevily kamenné schody vedoucí do tmy.');
+  },1050);
 }
 /* Two genuinely painted full-room states. Reveal the shifted bookcase
    progressively to avoid the old flat-vector and duplicate-shelf artifacts. */
 function paintBookcaseSecret(ctx) {
-  if(shelfMix<=0 || !images.roomShift?.naturalWidth)return;
-  const u=shelfMix*shelfMix*(3-2*shelfMix);
-  ctx.save();ctx.beginPath();ctx.rect(0,0,480*u,566);ctx.clip();
-  ctx.drawImage(images.roomShift,0,0,1085,566);ctx.restore();
+  if(!shelfOpened||!images.roomShift?.naturalWidth)return;
+  // Only the shelf zone changes, once. Never wipe or alpha-fade the scene.
+  ctx.drawImage(images.roomShift,0,0,465,566,0,0,465,566);
 }
 
 function inspect(id) {
@@ -762,7 +756,7 @@ function frame(now) {
     ctx.drawImage(images.room,0,0);
     ctx.globalAlpha = 1;
   }
-  if(litMix>0 && shelfMix>0) {
+  if(litMix>0 && shelfOpened) {
     ctx.save();ctx.globalAlpha=litMix;paintBookcaseSecret(ctx);ctx.restore();
   }
   if(litMix>0) {
