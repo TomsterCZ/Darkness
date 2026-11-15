@@ -26,13 +26,13 @@ button:hover{background:#3e2b24}
 /* Actual Sokoban pushing in narrow, enclosed corridors, with undo and reset. */
 const PLAN = [
 "###############",
-"#...#.B......E#",
-"#..##..##.#...#",
-"#..B..#..#....#",
-"#..##...#.##..#",
-"#....##....#..#",
-"#..##...#...###",
-"#@..B...#.....#",
+"#.#.#.B....#.E#",
+"#..##.###.....#",
+"#.#....#.#.#..#",
+"#..##.....##..#",
+"#.#.###B..#.#.#",
+"#..###..#..####",
+"#@B.....#.#.#.#",
 "###############"
 ], GW=15,GH=9,HW=34,HH=18,OX=525,OY=88;
 const canvas=document.querySelector('#view'),g=canvas.getContext('2d');
@@ -213,9 +213,9 @@ function paintStatic(){
 }
 const blockAt=(x,y)=>blocks.findIndex(b=>b.x===x&&b.y===y);
 function valid(x,y){return walkable.has(key(x,y));}
-function save(){try{localStorage.setItem('darkness_isometric_cellar_v3',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
+function save(){try{localStorage.setItem('darkness_isometric_cellar_v4',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
 function restore(){try{
- const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v3'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
+ const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v4'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
  if(!valid(s.p.x,s.p.y)||s.b.some(b=>!valid(b.x,b.y)))return;
  const set=new Set(s.b.map(b=>key(b.x,b.y)));if(set.size!==3||set.has(key(s.p.x,s.p.y)))return;
  person=s.p;blocks=s.b;moves=s.m|0;pushes=s.pushes|0;won=!!s.won;
