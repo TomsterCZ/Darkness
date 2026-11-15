@@ -392,7 +392,27 @@ getImage('room', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 getImage('chestOpen', 'assets/props/chest_open.png');
+/* A single open-chest background state, built once from the room art plus the
+   pre-cropped, feather-edged open-chest sprite, then cached and used as a
+   straight substitute for the whole room image — never alpha-blended on top
+   of the closed-chest art, so there is no way for both to show at once. */
 const CHEST_OPEN_POS = { x: 110, y: 343, w: 244, h: 216 };
+let openChestScene = null;
+
+function getOpenChestScene() {
+  if (openChestScene) return openChestScene;
+  const room = images.room, openSprite = images.chestOpen;
+  if (!room?.naturalWidth || !openSprite?.naturalWidth) return null;
+
+  const scene = document.createElement('canvas');
+  scene.width = 1085; scene.height = 566;
+  const sc = scene.getContext('2d');
+  sc.imageSmoothingEnabled = false;
+  sc.drawImage(room, 0, 0, 1085, 566);
+  sc.drawImage(openSprite, CHEST_OPEN_POS.x, CHEST_OPEN_POS.y, CHEST_OPEN_POS.w, CHEST_OPEN_POS.h);
+  openChestScene = scene;
+  return scene;
+}
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -402,7 +422,7 @@ for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.
 let found = { iron_key: false, chest_key: false, paper: false, green_potion: false };
 let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false, shelfSearched = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
-let matchFade = 1, potionMix = 0, chestMix = 0;
+let matchFade = 1, potionMix = 0;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
@@ -510,7 +530,8 @@ function inspect(id) {
         openChest = true;
         give('paper'); give('iron_key');
         playChestOpen();
-        rampValue(v => chestMix = v, 0, 1, 550);
+        // Open immediately after the creak; never crossfade two chests.
+        getOpenChestScene();
         sayAtHero('Klíček zapadne do zámku a víko zavrže a povolí. Uvnitř leží list pergamenu a starý železný klíč.'); gesture('use', 1100);
       } else if (found.chest_key) {
         sayAtHero('Musím klíček držet v ruce, abych truhlu odemkl.'); gesture('examine');
@@ -655,17 +676,13 @@ function frame(now) {
   if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
   if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
     ctx.globalAlpha = litMix;
-    ctx.drawImage(images.room, 0, 0);
+    // Render ONE mutually exclusive full-room state: chest closed OR open.
+    ctx.drawImage((openChest && getOpenChestScene()) || images.room, 0, 0);
     ctx.globalAlpha = 1;
   }
   if (litMix > 0 && potionMix < 1 && images.potionSprite?.complete && images.potionSprite.naturalWidth) {
     ctx.globalAlpha = litMix * (1 - potionMix);
     ctx.drawImage(images.potionSprite, POTION_POS.x, POTION_POS.y, POTION_POS.w, POTION_POS.h);
-    ctx.globalAlpha = 1;
-  }
-  if (litMix > 0 && chestMix > 0 && images.chestOpen?.complete && images.chestOpen.naturalWidth) {
-    ctx.globalAlpha = litMix * chestMix;
-    ctx.drawImage(images.chestOpen, CHEST_OPEN_POS.x, CHEST_OPEN_POS.y, CHEST_OPEN_POS.w, CHEST_OPEN_POS.h);
     ctx.globalAlpha = 1;
   }
   if (gameState === 'dark' && matchFade > 0 && images.matchbox?.complete && images.matchbox.naturalWidth) {
@@ -707,7 +724,7 @@ resetBtn.addEventListener('click', () => {
   openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false; shelfSearched = false;
   ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
-  matchFade = 1; potionMix = 0; chestMix = 0;
+  matchFade = 1; potionMix = 0;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   heldItem = null; prevInvKeys = []; stage.style.cursor = CURSORS.walk;
   popupEl.classList.remove('show');
