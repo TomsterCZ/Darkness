@@ -391,7 +391,7 @@ getImage('room', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 getImage('chestOpen', 'assets/props/chest_open.png');
-const CHEST_OPEN_POS = { x: 133, y: 366, w: 197, h: 169 };
+const CHEST_OPEN_POS = { x: 110, y: 343, w: 244, h: 216 };
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -594,7 +594,7 @@ function point(ev) {
   return [(ev.clientX - r.left) / r.width * 1085, (ev.clientY - r.top) / r.height * 566];
 }
 function getHotspot(x, y) { return currentHotspots().find(h => x >= h.box[0] && x <= h.box[2] && y >= h.box[1] && y <= h.box[3]); }
-function isOnHero(x, y) { return Math.abs(x - hero.x) < 105 && y > hero.y - 240 && y < hero.y + 10; }
+function isOnHero(x, y) { return Math.abs(x - hero.x) < 80 && y > hero.y - 230 && y < hero.y + 5; }
 
 const HERO_NAME = 'Zubožený žalářník';
 canvas.addEventListener('pointermove', ev => {
