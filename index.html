@@ -393,15 +393,17 @@ const getImage = (key, src) => { const img = new Image(); images[key] = img; img
    and two mutually exclusive transparent chest objects. */
 getImage('room', 'assets/scene/room_without_chest.jpg');
 getImage('roomShift', 'assets/scene/room_bookshelf_open_v6.jpg');
-getImage('chestClosed', 'assets/props/chest_closed_v6.png');
-getImage('chestOpened', 'assets/props/chest_open_v6.png');
+getImage('chestClosed', 'assets/props/chest_closed_pixel.png');
+getImage('chestOpened', 'assets/props/chest_open_pixel.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 function paintChest(ctx) {
   const img=images[openChest?'chestOpened':'chestClosed'];
   if(img?.complete && img.naturalWidth) {
-    if(openChest)ctx.drawImage(img,136,358,198,182);
-    else ctx.drawImage(img,137,403,196,137);
+    // Matching front and long rear-edge hinges in both states. Only one
+    // sprite is ever drawn over the chest-free room background.
+    if(openChest)ctx.drawImage(img,137,362,195,181);
+    else ctx.drawImage(img,137,406,195,137);
   }
 }
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
@@ -557,7 +559,7 @@ function rotateBookcase() {
 function paintBookcaseSecret(ctx) {
   if(!shelfOpened||!images.roomShift?.naturalWidth)return;
   // Only the shelf zone changes, once. Never wipe or alpha-fade the scene.
-  ctx.drawImage(images.roomShift,0,0,465,566,0,0,465,566);
+  ctx.drawImage(images.roomShift,0,0,385,566,0,0,385,566);
 }
 
 function inspect(id) {
