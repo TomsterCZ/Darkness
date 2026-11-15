@@ -391,7 +391,69 @@ getImage('room', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 getImage('chestOpen', 'assets/props/chest_open.png');
-const CHEST_OPEN_POS = { x: 110, y: 343, w: 244, h: 216 };
+/* A single open-chest background state, built from the actual room artwork.
+   The closed chest is baked into the room image: never overlay another on it. */
+const OPEN_CHEST_FIT = { x: 144, y: 366, w: 188, h: 175 };
+let openChestScene = null;
+
+function getOpenChestScene() {
+  if (openChestScene) return openChestScene;
+  const room = images.room, openSprite = images.chestOpen;
+  if (!room?.naturalWidth || !openSprite?.naturalWidth) return null;
+
+  const scene = document.createElement('canvas');
+  scene.width = 1085; scene.height = 566;
+  const sc = scene.getContext('2d');
+  sc.imageSmoothingEnabled = false;
+  sc.drawImage(room, 0, 0, 1085, 566);
+
+  // The original chest occupies only the lower-left corner. Reconstruct
+  // what is behind it with nearby masonry/floor from THIS SAME room image.
+  const patch = document.createElement('canvas');
+  patch.width = 1085; patch.height = 566;
+  const pc = patch.getContext('2d');
+  pc.imageSmoothingEnabled = false;
+  pc.drawImage(room, 336, 416, 189, 126, 142, 416, 188, 126);
+  pc.globalCompositeOperation = 'destination-in';
+  pc.filter = 'blur(5px)';
+  pc.fillStyle = '#fff';
+  pc.beginPath();
+  pc.moveTo(148, 457); pc.lineTo(155, 428);
+  pc.lineTo(190, 419); pc.lineTo(284, 417);
+  pc.lineTo(310, 427); pc.lineTo(328, 450);
+  pc.lineTo(328, 527); pc.lineTo(312, 537);
+  pc.lineTo(157, 539); pc.lineTo(144, 519);
+  pc.closePath(); pc.fill();
+  pc.globalCompositeOperation = 'source-over';
+  pc.filter = 'none';
+  sc.drawImage(patch, 0, 0);
+
+  // Transparent margins in the supplied open-chest PNG made the chest
+  // appear too small. Crop to the actual opaque artwork before positioning.
+  const sprite = document.createElement('canvas');
+  sprite.width = openSprite.naturalWidth;
+  sprite.height = openSprite.naturalHeight;
+  const sp = sprite.getContext('2d', { willReadFrequently: true });
+  sp.drawImage(openSprite, 0, 0);
+  const pix = sp.getImageData(0, 0, sprite.width, sprite.height).data;
+  let left = sprite.width, top = sprite.height, right = -1, bottom = -1;
+  for (let y = 0; y < sprite.height; y++) {
+    for (let x = 0; x < sprite.width; x++) {
+      if (pix[(y * sprite.width + x) * 4 + 3] <= 24) continue;
+      if (x < left) left = x;
+      if (y < top) top = y;
+      if (x > right) right = x;
+      if (y > bottom) bottom = y;
+    }
+  }
+  if (right >= left && bottom >= top) {
+    sc.drawImage(openSprite, left, top,
+      right - left + 1, bottom - top + 1,
+      OPEN_CHEST_FIT.x, OPEN_CHEST_FIT.y, OPEN_CHEST_FIT.w, OPEN_CHEST_FIT.h);
+  }
+  openChestScene = scene;
+  return scene;
+}
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -401,7 +463,7 @@ for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.
 let found = { iron_key: false, paper: false, green_potion: false };
 let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
-let matchFade = 1, potionMix = 0, chestMix = 0;
+let matchFade = 1, potionMix = 0;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
 let hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
 let last = 0;
@@ -502,7 +564,8 @@ function inspect(id) {
     if (!found.paper) {
       give('paper'); openChest = true;
       playChestOpen();
-      rampValue(v => chestMix = v, 0, 1, 550);
+      // Open immediately after the creak; never crossfade two chests.
+      getOpenChestScene();
       sayAtHero('Víko zavrže a povolí. Uvnitř leží jediný list pergamenu, popsaný podivnými, rozmazanými znaky.'); gesture('use', 1100);
     } else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
@@ -642,17 +705,13 @@ function frame(now) {
   if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
   if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
     ctx.globalAlpha = litMix;
-    ctx.drawImage(images.room, 0, 0);
+    // Render ONE mutually exclusive full-room state: chest closed OR open.
+    ctx.drawImage((openChest && getOpenChestScene()) || images.room, 0, 0);
     ctx.globalAlpha = 1;
   }
   if (litMix > 0 && potionMix < 1 && images.potionSprite?.complete && images.potionSprite.naturalWidth) {
     ctx.globalAlpha = litMix * (1 - potionMix);
     ctx.drawImage(images.potionSprite, POTION_POS.x, POTION_POS.y, POTION_POS.w, POTION_POS.h);
-    ctx.globalAlpha = 1;
-  }
-  if (litMix > 0 && chestMix > 0 && images.chestOpen?.complete && images.chestOpen.naturalWidth) {
-    ctx.globalAlpha = litMix * chestMix;
-    ctx.drawImage(images.chestOpen, CHEST_OPEN_POS.x, CHEST_OPEN_POS.y, CHEST_OPEN_POS.w, CHEST_OPEN_POS.h);
     ctx.globalAlpha = 1;
   }
   if (gameState === 'dark' && matchFade > 0 && images.matchbox?.complete && images.matchbox.naturalWidth) {
@@ -694,7 +753,7 @@ resetBtn.addEventListener('click', () => {
   openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false;
   ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
-  matchFade = 1; potionMix = 0; chestMix = 0;
+  matchFade = 1; potionMix = 0;
   hero = { x: 421, y: 515, destX: 421, destY: 515, action: 'idle', face: 'walk_right', actUntil: 0, phase: 0, queued: null };
   heldItem = null; prevInvKeys = []; stage.style.cursor = CURSORS.walk;
   popupEl.classList.remove('show');
