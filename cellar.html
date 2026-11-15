@@ -23,24 +23,27 @@ button:hover{background:#3e2b24}
 <script>
 (() => {
 'use strict';
-/* These are actual Sokoban rules. The exit is inaccessible without moving
-   crates. The reference map is verified with a shortest-path solver:
-   24 steps, 9 pushes, and all three crates must be moved. */
+/* Actual Sokoban pushing in narrow, enclosed corridors, with undo and reset. */
 const PLAN = [
-"#############",
-"#.#........E#",
-"#.#.#.###.#.#",
-"#.......#...#",
-"######..###.#",
-"#..B..#....B#",
-"#.#.######..#",
-"#@#...B.....#",
-"#############"
-], GW=13,GH=9,HW=39,HH=19,OX=516,OY=76;
+"###############",
+"#...#.B......E#",
+"#..##..##.#...#",
+"#..B..#..#....#",
+"#..##...#.##..#",
+"#....##....#..#",
+"#..##...#...###",
+"#@..B...#.....#",
+"###############"
+], GW=15,GH=9,HW=34,HH=18,OX=525,OY=88;
 const canvas=document.querySelector('#view'),g=canvas.getContext('2d');
 g.imageSmoothingEnabled=false;
 const bg=document.createElement('canvas');bg.width=1085;bg.height=566;
 const bgc=bg.getContext('2d');
+/* The painterly isometric dungeon scene is the full background.
+   Logic overlays use subtle shadows rather than a schematic game grid. */
+const paintedRoom=new Image();
+paintedRoom.onload=()=>paintStatic();
+paintedRoom.src='assets/scene/cellar_pixel_art.jpg';
 const walkable=new Set(),walls=new Set(),starting=[],initialPlayer={x:0,y:0},exit={x:0,y:0};
 const key=(x,y)=>x+','+y;
 for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
@@ -196,9 +199,13 @@ function drawExit(c,time){
 }
 function paintStatic(){
  drawBackground();
- // A single hand-crafted field of view. No printed grid lines, tiles,
- // instructions, coordinates or schematic numbered markers.
+ if(paintedRoom.complete&&paintedRoom.naturalWidth){
+   bgc.drawImage(paintedRoom,0,0,1085,566);
+   bgc.fillStyle='rgba(4,6,11,.16)';bgc.fillRect(0,0,1085,566);
+ }
+ bgc.save();bgc.globalAlpha=.15;
  for(let d=0;d<GW+GH-1;d++)for(let y=0;y<GH;y++){let x=d-y;if(x>=0&&x<GW&&walkable.has(key(x,y)))floorTile(x,y);}
+ bgc.restore();
  // atmospheric puddle and scattered bones on the lower perimeter
  const c=bgc;
  c.fillStyle='rgba(62,116,142,.20)';c.beginPath();c.ellipse(506,508,54,8,-.2,0,Math.PI*2);c.fill();
@@ -206,9 +213,9 @@ function paintStatic(){
 }
 const blockAt=(x,y)=>blocks.findIndex(b=>b.x===x&&b.y===y);
 function valid(x,y){return walkable.has(key(x,y));}
-function save(){try{localStorage.setItem('darkness_isometric_cellar_v2',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
+function save(){try{localStorage.setItem('darkness_isometric_cellar_v3',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
 function restore(){try{
- const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v2'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
+ const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v3'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
  if(!valid(s.p.x,s.p.y)||s.b.some(b=>!valid(b.x,b.y)))return;
  const set=new Set(s.b.map(b=>key(b.x,b.y)));if(set.size!==3||set.has(key(s.p.x,s.p.y)))return;
  person=s.p;blocks=s.b;moves=s.m|0;pushes=s.pushes|0;won=!!s.won;
@@ -340,7 +347,7 @@ function draw(now){
  things.push({z:exit.x+exit.y+.13,type:'exit',x:exit.x,y:exit.y});
  things.sort((a,b)=>a.z-b.z||({wall:0,exit:1,box:2,person:3}[a.type]-{wall:0,exit:1,box:2,person:3}[b.type]));
  for(let o of things){
-  if(o.type==='wall')stoneWall(g,o.x,o.y);
+  if(o.type==='wall'){g.save();g.globalAlpha=.22;stoneWall(g,o.x,o.y);g.restore();}
   else if(o.type==='box')crate(g,o.x,o.y,0,now);
   else if(o.type==='exit')drawExit(g,now);
   else if(o.type==='person'){
