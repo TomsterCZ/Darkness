@@ -34,7 +34,7 @@ const PLAN = [
 "#..###..#..####",
 "#@B.....#.#.#.#",
 "###############"
-], GW=15,GH=9,HW=34,HH=18,OX=525,OY=88;
+], GW=15,GH=9,HW=42,HH=18,OX=467,OY=389,AX=15,AY=17;
 const canvas=document.querySelector('#view'),g=canvas.getContext('2d');
 g.imageSmoothingEnabled=false;
 const bg=document.createElement('canvas');bg.width=1085;bg.height=566;
@@ -43,7 +43,7 @@ const bgc=bg.getContext('2d');
    Logic overlays use subtle shadows rather than a schematic game grid. */
 const paintedRoom=new Image();
 paintedRoom.onload=()=>paintStatic();
-paintedRoom.src='assets/scene/cellar_pixel_art.jpg';
+paintedRoom.src='assets/scene/cellar_single_scene.jpg';
 const walkable=new Set(),walls=new Set(),starting=[],initialPlayer={x:0,y:0},exit={x:0,y:0};
 const key=(x,y)=>x+','+y;
 for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
@@ -59,6 +59,7 @@ let muted=false, audio=null,lastMove=0,fadeStart=0,everPlayed=false;
 const sprites={};
 function loadSprite(name,file){let im=new Image();im.src=file;sprites[name]=im;}
 loadSprite('idle','assets/character/idle/00.png');
+loadSprite('crate','assets/props/crate_pixel.png');
 for(let i=0;i<10;i++){
  loadSprite('right'+i,'assets/character/walk_right/'+String(i).padStart(2,'0')+'.png');
  loadSprite('left'+i,'assets/character/walk_left/'+String(i).padStart(2,'0')+'.png');
@@ -66,7 +67,7 @@ for(let i=0;i<10;i++){
 let facing='right';
 const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
 function rand(x,y,k=0){let n=(x*374761393+y*668265263+k*1442695041)|0;n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;}
-function at(x,y){return {x:OX+(x-y)*HW,y:OY+(x+y)*HH};}
+function at(x,y){return {x:OX+(x-y)*HW,y:OY-x*AX-y*AY};}
 function poly(c,pts,col,stroke){c.fillStyle=col;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=1;c.stroke();}}
 function line(c,x,y,x2,y2,color,width=1){c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(x,y);c.lineTo(x2,y2);c.stroke();}
 function glow(c,x,y,r,alpha){const p=c.createRadialGradient(x,y,0,x,y,r);p.addColorStop(0,'rgba(255,143,65,'+alpha+')');p.addColorStop(.28,'rgba(216,88,29,'+(alpha*.37)+')');p.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=p;c.fillRect(x-r,y-r,r*2,r*2);}
@@ -162,20 +163,18 @@ function stoneWall(c,x,y){
  }
 }
 function crate(c,x,y,py,time){
- const p=at(x,y),z=py||0,h=34;
- let glowish=rand(x,y);c.fillStyle='rgba(0,0,0,.45)';c.beginPath();c.ellipse(p.x,p.y+7,29,11,0,0,Math.PI*2);c.fill();
- poly(c,[[p.x-26,p.y-h-z],[p.x,p.y+12-h-z],[p.x,p.y+12-z],[p.x-26,p.y-z]],'#69452f','#201923');
- poly(c,[[p.x,p.y+12-h-z],[p.x+26,p.y-h-z],[p.x+26,p.y-z],[p.x,p.y+12-z]],'#4b3026','#24191a');
- poly(c,[[p.x-26,p.y-h-z],[p.x,p.y-12-h-z],[p.x+26,p.y-h-z],[p.x,p.y+12-h-z]],'#92623e','#241b1a');
- // Heavy cross braces and iron corners.
- line(c,p.x-22,p.y-h+2-z,p.x-4,p.y+7-z,'#bd8b57',3);
- line(c,p.x-22,p.y+3-z,p.x-4,p.y-h+11-z,'#443026',3);
- line(c,p.x+3,p.y+7-z,p.x+22,p.y-h+3-z,'#795038',3);
- line(c,p.x+3,p.y-h+2-z,p.x+22,p.y+7-z,'#332321',3);
- line(c,p.x-22,p.y-h+1-z,p.x,p.y-11-h-z,'#c2965e',3);
- line(c,p.x,p.y-11-h-z,p.x+22,p.y-h+1-z,'#4d2e29',3);
- for(let i=0;i<4;i++){const xx=p.x+(i<2?-19:19),yy=p.y-h-z+(i%2?3:8);c.fillStyle='#c29a62';c.fillRect(xx,yy,2,2);}
+ const p=at(x,y),z=py||0,im=sprites.crate;
+ c.fillStyle='rgba(0,0,0,.36)';
+ c.beginPath();c.ellipse(p.x,p.y+7,25,7,0,0,Math.PI*2);c.fill();
+ if(im?.complete&&im.naturalWidth){
+   c.imageSmoothingEnabled=false;
+   c.drawImage(im,Math.round(p.x-32),Math.round(p.y-63-z),64,69);
+ }else{
+   c.fillStyle='#754b32';c.fillRect(p.x-22,p.y-43-z,44,43);
+   c.strokeStyle='#b17f51';c.lineWidth=3;c.strokeRect(p.x-20,p.y-42-z,40,39);
+ }
 }
+
 function drawTorch(c,x,y,time){
  glow(c,x,y,115,.35+.03*Math.sin(time/170+x));c.fillStyle='#342b2a';c.fillRect(x-5,y+9,10,17);
  c.fillStyle='#b17b43';c.fillRect(x-2,y+12,4,9);c.fillStyle='#f1a454';
@@ -198,24 +197,20 @@ function drawExit(c,time){
  if(!won){for(let i=-2;i<=2;i++){c.fillStyle='#35383b';c.fillRect(x+i*10-1,y-55,3,72);c.fillStyle='#7c5f49';c.fillRect(x+i*10-1,y-55,1,72);}}
 }
 function paintStatic(){
- drawBackground();
+ bgc.clearRect(0,0,1085,566);
+ // The illustrated dungeon IS the map; no additional floor tiles or walls.
  if(paintedRoom.complete&&paintedRoom.naturalWidth){
    bgc.drawImage(paintedRoom,0,0,1085,566);
-   bgc.fillStyle='rgba(4,6,11,.16)';bgc.fillRect(0,0,1085,566);
- }
- bgc.save();bgc.globalAlpha=.15;
- for(let d=0;d<GW+GH-1;d++)for(let y=0;y<GH;y++){let x=d-y;if(x>=0&&x<GW&&walkable.has(key(x,y)))floorTile(x,y);}
- bgc.restore();
- // atmospheric puddle and scattered bones on the lower perimeter
- const c=bgc;
- c.fillStyle='rgba(62,116,142,.20)';c.beginPath();c.ellipse(506,508,54,8,-.2,0,Math.PI*2);c.fill();
- c.fillStyle='#7c6a54';c.fillRect(144,502,23,3);c.fillRect(149,497,3,13);
+   bgc.fillStyle='rgba(4,6,11,.05)';
+   bgc.fillRect(0,0,1085,566);
+ }else drawBackground();
 }
+
 const blockAt=(x,y)=>blocks.findIndex(b=>b.x===x&&b.y===y);
 function valid(x,y){return walkable.has(key(x,y));}
-function save(){try{localStorage.setItem('darkness_isometric_cellar_v4',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
+function save(){try{localStorage.setItem('darkness_isometric_cellar_v5',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
 function restore(){try{
- const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v4'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
+ const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v5'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
  if(!valid(s.p.x,s.p.y)||s.b.some(b=>!valid(b.x,b.y)))return;
  const set=new Set(s.b.map(b=>key(b.x,b.y)));if(set.size!==3||set.has(key(s.p.x,s.p.y)))return;
  person=s.p;blocks=s.b;moves=s.m|0;pushes=s.pushes|0;won=!!s.won;
@@ -284,8 +279,8 @@ function clickTile(ev){
  audioStart();if(won)return;
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
  // Inverse of the exact isometric projection used to render walkable tiles.
- const u=(sx-OX)/HW,v=(sy-OY)/HH;
- let x=Math.round((u+v)/2),y=Math.round((v-u)/2);
+ const u=(sx-OX)/HW,v=OY-sy;
+ let y=Math.round((v-AX*u)/(AX+AY)),x=Math.round(u+y);
  // A crate is taller than its floor diamond. Check its *visible sprite*
  // before mapping the pointer to the floor, or clicking its front/lid
  // incorrectly selects the cell behind it in the isometric projection.
@@ -332,7 +327,7 @@ function draw(now){
  // Depth-sort all walls, crates, exit and player. Proper occlusion makes
  // moving through the diagonal corridors feel genuinely isometric.
  const things=[];
- for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)if(walls.has(key(x,y)))things.push({z:x+y,type:'wall',x,y});
+ // The painted scene already contains all stone wall geometry.
  for(let i=0;i<blocks.length;i++){
   let p=blocks[i],vx=p.x,vy=p.y;
   if(tween?.boxMove?.idx===i){const k=Math.min(1,(now-tween.start)/tween.duration),q=k*k*(3-2*k);vx=tween.boxMove.from.x+(p.x-tween.boxMove.from.x)*q;vy=tween.boxMove.from.y+(p.y-tween.boxMove.from.y)*q;}
@@ -347,9 +342,8 @@ function draw(now){
  things.push({z:exit.x+exit.y+.13,type:'exit',x:exit.x,y:exit.y});
  things.sort((a,b)=>a.z-b.z||({wall:0,exit:1,box:2,person:3}[a.type]-{wall:0,exit:1,box:2,person:3}[b.type]));
  for(let o of things){
-  if(o.type==='wall'){g.save();g.globalAlpha=.22;stoneWall(g,o.x,o.y);g.restore();}
-  else if(o.type==='box')crate(g,o.x,o.y,0,now);
-  else if(o.type==='exit')drawExit(g,now);
+  if(o.type==='box')crate(g,o.x,o.y,0,now);
+  else if(o.type==='exit' && won)drawExit(g,now);
   else if(o.type==='person'){
     const p=at(o.x,o.y),idx=(now/180|0)%10;
     const im=walking?sprites[facing+idx]:sprites.idle;
@@ -363,9 +357,7 @@ function draw(now){
   }
  }
  // Sconces glow at different depths; subdued orange highlights, deep shadow.
- for(let [x,y,t]of [[117,160,0],[908,180,400],[846,500,800]])drawTorch(g,x,y,now+t);
- // Individual cobwebs and stone dust within the maze.
- for(const [x,y] of [[3,1],[8,2],[4,7]])drawSpider(g,x,y);
+ // Torchlight and webs are already in the scene's original pixel art.
  const vign=g.createRadialGradient(540,275,220,542,274,690);vign.addColorStop(0,'rgba(0,0,0,0)');vign.addColorStop(1,'rgba(0,0,0,.70)');
  g.fillStyle=vign;g.fillRect(0,0,1085,566);
  if(pending.length&&!tween&&now-lastMove>175){lastMove=now;const [dx,dy]=pending.shift();if(!move(dx,dy))pending=[];}
