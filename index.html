@@ -387,10 +387,11 @@ function idleFrameAt(phaseMs) {
 
 let images = {};
 const getImage = (key, src) => { const img = new Image(); images[key] = img; img.src = src; };
-getImage('room', 'assets/scene/dungeon_clean_1085x566.png');
-getImage('roomNoPotion', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
+getImage('room', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
+getImage('potionSprite', 'assets/props/potion_table_sprite.png');
+const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 getImage('chestOpen', 'assets/props/chest_open.png');
-const CHEST_OPEN_POS = { x: 90, y: 295, w: 255, h: 271 };
+const CHEST_OPEN_POS = { x: 133, y: 366, w: 197, h: 169 };
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
 for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImage(`${a}_${j}`, `assets/character/${a}/${String(j).padStart(2, '0')}.png`);
@@ -644,9 +645,9 @@ function frame(now) {
     ctx.drawImage(images.room, 0, 0);
     ctx.globalAlpha = 1;
   }
-  if (litMix > 0 && potionMix > 0 && images.roomNoPotion?.complete && images.roomNoPotion.naturalWidth) {
-    ctx.globalAlpha = litMix * potionMix;
-    ctx.drawImage(images.roomNoPotion, 0, 0);
+  if (litMix > 0 && potionMix < 1 && images.potionSprite?.complete && images.potionSprite.naturalWidth) {
+    ctx.globalAlpha = litMix * (1 - potionMix);
+    ctx.drawImage(images.potionSprite, POTION_POS.x, POTION_POS.y, POTION_POS.w, POTION_POS.h);
     ctx.globalAlpha = 1;
   }
   if (litMix > 0 && chestMix > 0 && images.chestOpen?.complete && images.chestOpen.naturalWidth) {
