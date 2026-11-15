@@ -194,6 +194,7 @@ const CURSORS = {
 const HELD_CURSORS = {
   matchbox: 'url("assets/cursors/held_matchbox.png") 38 38, auto',
   iron_key: 'url("assets/cursors/held_iron_key.png") 38 38, auto',
+  chest_key: 'url("assets/cursors/held_chest_key.png") 38 38, auto',
   paper: 'url("assets/cursors/held_paper.png") 38 38, auto',
   green_potion: 'url("assets/cursors/held_green_potion.png") 38 38, auto'
 };
@@ -201,8 +202,8 @@ stage.style.cursor = CURSORS.walk;
 function cursorForHotspot(h) {
   if (!h) return 'walk';
   switch (h.id) {
-    case 'shelf': return (!paperRevealed || found.iron_key) ? 'examine' : 'pickup';
-    case 'chest': return found.paper ? 'examine' : 'pickup';
+    case 'shelf': return (shelfSearched && !found.chest_key) ? 'pickup' : 'examine';
+    case 'chest': return (!openChest && heldItem === 'chest_key') ? 'use' : 'examine';
     case 'table': return found.green_potion ? 'examine' : 'pickup';
     case 'door': return found.iron_key ? 'use' : 'examine';
     case 'matchbox': return matchTaken ? 'examine' : 'pickup';
@@ -398,8 +399,8 @@ for (const [a, n] of Object.entries(aCount)) for (let j = 0; j < n; j++) getImag
 getImage('paper', 'assets/props/pentagram_scroll.png');
 for (const id of ['iron_key', 'green_potion']) getImage(id, `assets/props/${id}.png`);
 
-let found = { iron_key: false, paper: false, green_potion: false };
-let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false;
+let found = { iron_key: false, chest_key: false, paper: false, green_potion: false };
+let openChest = false, escaped = false, dead = false, deathFade = 0, poisonFade = 0, paperRevealed = false, shelfSearched = false;
 let gameState = 'dark', matchTaken = false, litMix = 0, igniting = false;
 let matchFade = 1, potionMix = 0, chestMix = 0;
 const MATCH_POS = [230, 460], CANDLE_POS = [770, 538];
@@ -423,7 +424,8 @@ function currentHotspots() { return gameState === 'dark' ? darkHotspots : litHot
 
 const ITEM_DEFS = {
   matchbox: { name: 'Krabička sirek', icon: 'assets/items/matchbox_open_inventory.png', desc: 'Otevřená krabička sirek. Uvnitř zbývá jen pár kousků.', invScale: 1.5 },
-  iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Železný klíč, ještě teplý. Jeho zuby mají tvar malých kůstek.', invScale: 1 },
+  iron_key: { name: 'Železný klíč', icon: 'assets/props/iron_key.png', desc: 'Starý železný klíč. Jeho zuby mají tvar malých kůstek.', invScale: 1 },
+  chest_key: { name: 'Stříbrný klíček', icon: 'assets/props/chest_key.png', desc: 'Malý, otlučený klíček. Vypadá, že patří k zámku truhly.', invScale: 1 },
   paper: { name: 'Popsaný pergamen', icon: 'assets/props/pentagram_scroll.png', desc: 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.', invScale: 1 },
   green_potion: { name: 'Zelený lektvar', icon: 'assets/props/green_potion.png', desc: 'Elixír měsíčního kořene. Jedna kapka připomene staré magii její účel.', invScale: 0.72 }
 };
@@ -438,7 +440,7 @@ function renderInventory() {
   if (dead) { invEl.innerHTML = ''; return; }
   const keys = [];
   if (matchTaken) keys.push('matchbox');
-  for (const k of ['iron_key', 'paper', 'green_potion']) if (found[k]) keys.push(k);
+  for (const k of ['chest_key', 'iron_key', 'paper', 'green_potion']) if (found[k]) keys.push(k);
   invEl.innerHTML = '';
   for (const key of keys) {
     const el = document.createElement('div');
@@ -494,16 +496,27 @@ function inspect(id) {
     return;
   }
   if (id === 'shelf') {
-    if (!paperRevealed) { sayAtHero('Řady zaprášených svazků. Bez vodítka bych tu mohl pátrat donekonečna.'); gesture('examine'); }
-    else if (!found.iron_key) { give('iron_key'); sayAtHero('Jedna kniha se nehne, jako by ji svíral neviditelný zámek. Zatáhneš za hřbet — a za ní se skrývá starý železný klíč.'); gesture('use', 1100); }
-    else { sayAtHero('Za knihou už nic není, jen prázdná škvíra ve zdi.'); gesture('examine'); }
+    if (!shelfSearched) {
+      shelfSearched = true;
+      sayAtHero('Řady zaprášených svazků. Bez vodítka bych tu mohl pátrat donekonečna.'); gesture('examine');
+    } else if (!found.chest_key) {
+      give('chest_key');
+      sayAtHero('Při bližším zkoumání nahmatáš malý klíček, ukrytý za jedním z grimoárů.'); gesture('use', 1100);
+    } else { sayAtHero('Za knihou už nic není, jen prázdná škvíra ve zdi.'); gesture('examine'); }
   }
   if (id === 'chest') {
-    if (!found.paper) {
-      give('paper'); openChest = true;
-      playChestOpen();
-      rampValue(v => chestMix = v, 0, 1, 550);
-      sayAtHero('Víko zavrže a povolí. Uvnitř leží jediný list pergamenu, popsaný podivnými, rozmazanými znaky.'); gesture('use', 1100);
+    if (!openChest) {
+      if (heldItem === 'chest_key') {
+        openChest = true;
+        give('paper'); give('iron_key');
+        playChestOpen();
+        rampValue(v => chestMix = v, 0, 1, 550);
+        sayAtHero('Klíček zapadne do zámku a víko zavrže a povolí. Uvnitř leží list pergamenu a starý železný klíč.'); gesture('use', 1100);
+      } else if (found.chest_key) {
+        sayAtHero('Musím klíček držet v ruce, abych truhlu odemkl.'); gesture('examine');
+      } else {
+        sayAtHero('Truhla je pevně zamčená. Budu potřebovat nějaký klíček.'); gesture('examine');
+      }
     } else { sayAtHero('Na dně je už jen suchá sláma.'); gesture('examine'); }
   }
   if (id === 'rune') { sayAtHero('Pěticípá pečeť. Pod ní je vyryto: "Zelený plamen si pamatuje cestu."'); gesture('examine'); }
@@ -690,8 +703,8 @@ requestAnimationFrame(frame);
 
 resetBtn.addEventListener('click', () => {
   playClick();
-  found = { iron_key: false, paper: false, green_potion: false };
-  openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false;
+  found = { iron_key: false, chest_key: false, paper: false, green_potion: false };
+  openChest = false; escaped = false; dead = false; deathFade = 0; poisonFade = 0; paperRevealed = false; shelfSearched = false;
   ITEM_DEFS.paper.desc = 'List pergamenu, popsaný podivnými, rozmazanými znaky. Možná by pomohlo víc světla.';
   gameState = 'dark'; matchTaken = false; litMix = 0; igniting = false;
   matchFade = 1; potionMix = 0; chestMix = 0;
