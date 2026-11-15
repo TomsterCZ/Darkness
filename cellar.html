@@ -1,222 +1,199 @@
 <!doctype html>
 <html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Darkness — Zapomenuté sklepení</title>
+<title>Darkness — Tajné sklepení</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#030306;color:#cfbb9b}
-body{min-height:100vh;display:flex;justify-content:center;align-items:center}
-#stage{width:min(1220px,100vw);aspect-ratio:1085/566;position:relative;overflow:hidden;background:#07070a}
-canvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;cursor:pointer}
-#buttons{position:absolute;right:12px;top:12px;display:flex;gap:6px;opacity:.52;transition:opacity .2s}
-#buttons:hover,#buttons:focus-within{opacity:1}
-button{height:35px;width:35px;color:#d5b991;font:22px Georgia,serif;background:rgba(15,13,15,.86);border:1px solid #72604a;border-radius:3px;cursor:pointer}
-button:hover,button:focus-visible{background:#513d32}
-#touch{display:none;position:absolute;bottom:9px;left:9px;gap:5px;opacity:.78}
-#touch button{height:40px;width:40px}
-@media (pointer:coarse){#touch{display:flex}}
-#ending{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 50% 40%,rgba(6,12,17,.32),rgba(1,1,5,.90));font:clamp(21px,3vw,36px) Georgia,serif;color:#e8ceaa;text-shadow:0 3px 8px #000;pointer-events:none;text-align:center;letter-spacing:.07em}
-#ending.show{display:flex}#ending small{margin-top:18px;color:#aeb7bd;font:italic clamp(12px,1.7vw,19px) Georgia,serif;letter-spacing:0}
-</style></head>
-<body><div id="stage"><canvas id="board" width="1085" height="566" aria-label="Isometrické sklepení; čtyři bedny blokují cestu ven"></canvas>
-<div id="buttons"><button id="back" title="Zpět do cely">↶</button><button id="undo" title="Vrátit tah (Z)">↰</button><button id="reset" title="Začít znovu (R)">↻</button><button id="mute" title="Hudba">♫</button></div>
-<div id="touch"><button data-direction="0,-1" aria-label="Severovýchod">↗</button><button data-direction="1,0" aria-label="Jihovýchod">↘</button><button data-direction="0,1" aria-label="Jihozápad">↙</button><button data-direction="-1,0" aria-label="Severozápad">↖</button></div>
-<div id="ending">PRŮCHOD JE VOLNÝ<small>Kamenné bedny konečně uvolnily cestu...</small></div>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#070507;color:#d8bc93}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
+#stage{position:relative;width:min(1200px,100vw);aspect-ratio:1085/566;overflow:hidden;background:#100b11}
+canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none;cursor:pointer}
+#controls{position:absolute;top:12px;right:12px;display:flex;gap:7px;opacity:.64;transition:opacity .2s}
+#controls:hover,#controls:focus-within{opacity:1}button{border:1px solid #806a50;background:rgba(17,12,13,.82);color:#eed1a0;font:22px Georgia,serif;width:38px;height:38px;border-radius:3px;cursor:pointer}
+button:hover{background:#574031}button:focus-visible{outline:2px solid #f3d6a7;outline-offset:2px}
+#dpad{display:none;position:absolute;left:10px;bottom:8px;gap:4px}#dpad button{width:43px;height:43px}
+#hint{position:absolute;bottom:8%;left:16%;right:16%;text-align:center;color:#f1d8a8;font:clamp(14px,2.4vw,24px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
+#hint.show{opacity:1}
+#win{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 50% 45%,rgba(7,16,20,.35),rgba(3,5,8,.87));color:#f0d3a3;text-shadow:0 3px 9px #000;letter-spacing:.12em;font:clamp(19px,3vw,36px) Georgia,serif;pointer-events:none}
+#win.show{display:flex}#win small{font:italic clamp(12px,1.6vw,18px) Georgia,serif;letter-spacing:.02em;margin-top:14px;color:#c6b29b}
+@media(max-width:760px) and (pointer:coarse){#dpad{display:flex}}
+</style></head><body>
+<div id="stage"><canvas id="game" width="1085" height="566" aria-label="Isometrická hádanka. Posouvej dřevěné bedny na starobylé kamenné pečetě. Šipky pohyb, Z zpět, R restart."></canvas>
+<div id="controls"><button id="back" title="Zpět do kobky" aria-label="Zpět do kobky">↶</button><button id="undo" title="Vrátit tah (Z)" aria-label="Vrátit tah">↰</button><button id="restart" title="Začít znovu (R)" aria-label="Začít znovu">↻</button><button id="mute" title="Přepnout hudbu" aria-label="Přepnout hudbu">♫</button></div>
+<div id="dpad"><button data-dx="-1" data-dy="0" aria-label="Severovýchod">↗</button><button data-dx="0" data-dy="1" aria-label="Jihovýchod">↘</button><button data-dx="1" data-dy="0" aria-label="Jihozápad">↙</button><button data-dx="0" data-dy="-1" aria-label="Severozápad">↖</button></div>
+<div id="hint" aria-live="polite"></div><div id="win">PRŮCHOD JE OTEVŘENÝ<small>Kamenné pečetě konečně ustoupily...</small></div>
 <audio id="ambient" src="assets/music/before_the_light_soft_soundblaster.ogg" loop preload="none"></audio>
 <audio id="victory" src="assets/music/whisper_under_stone_soundblaster.ogg" loop preload="none"></audio>
 </div>
 <script>
-(()=>{
-'use strict';
-/* SINGLE SOURCE OF TRUTH: every visible corridor and collision follows GRID.
-   Unlike older versions, there is NO painted maze picture under these walls.
-   Verified by a shortest-path Sokoban solver: 16 moves, 13 pushes, all 4 crates. */
-const GRID=[
- '############',
- '#.##..##...#',
- '#.....#..E.#',
- '#.........##',
- '#.#.##...B.#',
- '##S###BB...#',
- '#.B#...###.#',
- '#.........##',
- '############'
+(()=>{'use strict';
+// The SAME map determines visible stone geometry (baked into the scene asset),
+// collisions, crate behavior, target sockets and pathfinding. Keep in sync
+// with build_assets.py, which paints the walls and floor from GRID.
+const GRID = [
+ '#############',
+ '#..#........#',
+ '#..#..#.#...#',
+ '#.....#.#...#',
+ '#..#......#.#',
+ '#..#..##....#',
+ '#.....#..#..#',
+ '#......#....#',
+ '#############'
 ];
-const MW=12,MH=9,HW=39,HH=21,OX=545,OY=75,WH=34;
-const cvs=document.querySelector('#board'),ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
-const off=document.createElement('canvas');off.width=1085;off.height=566;const bg=off.getContext('2d');bg.imageSmoothingEnabled=false;
-const k=(x,y)=>x+','+y;
-const at=(x,y)=>({x:OX+(x-y)*HW,y:OY+(x+y)*HH});
-const floor=new Set(),wall=new Set(),initialBoxes=[];
-let initialPlayer={x:0,y:0},exit={x:0,y:0};
-GRID.forEach((row,y)=>{if(row.length!==MW)throw Error('Corrupt cellar grid '+y);
- [...row].forEach((ch,x)=>{if(ch==='#')wall.add(k(x,y));else floor.add(k(x,y));
-  if(ch==='S')initialPlayer={x,y};if(ch==='B')initialBoxes.push({x,y});if(ch==='E')exit={x,y};});});
-if(initialBoxes.length!==4)throw Error('Cellar requires four crates');
-const loadImg=src=>{const im=new Image();im.src=src;return im;};
-const texture=loadImg('assets/scene/cellar_stone_atlas.jpg');
-const ambientArt=loadImg('assets/scene/cellar_ambient.jpg');
-const crateArt=loadImg('assets/props/crate_v6.png');
-const frames={idle:loadImg('assets/character/idle/00.png')};
-for(const dir of ['walk_left','walk_right'])for(let i=0;i<10;i++)frames[dir+'_'+i]=loadImg('assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
-const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory'),ending=document.querySelector('#ending');
-ambient.volume=.25;victory.volume=0;
-let player={...initialPlayer},boxes=initialBoxes.map(p=>({...p})),history=[],stepCount=0,pushCount=0,won=false;
-let motion=null,dirFace='walk_right',queued=[],lastQueued=0,muted=false,audio=null,started=false,winningAt=0;
-function isFree(x,y){return floor.has(k(x,y));}
-const boxIndex=(x,y)=>boxes.findIndex(b=>b.x===x&&b.y===y);
-function polygon(c,pts,fill,stroke){c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();if(fill){c.fillStyle=fill;c.fill();}if(stroke){c.strokeStyle=stroke;c.lineWidth=1;c.stroke();}}
-function texPolygon(c,pts,tile,dest,shade){
- polygon(c,pts,'#24232b');c.save();c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();c.clip();
- if(texture.complete&&texture.naturalWidth){c.drawImage(texture,(tile%4)*128,Math.floor(tile/4)*128,128,128,...dest);}
- if(shade){c.fillStyle=shade;c.fillRect(dest[0],dest[1],dest[2],dest[3]);}
- c.restore();polygon(c,pts,null,'rgba(10,10,13,.62)');
+const W=13,H=9,HW=36,HH=19,OX=558,OY=99;
+const PLAYER_START=[6,1], EXIT=[1,7];
+const CRATES_START=[[5,1],[7,1],[9,2],[10,2],[10,3]];
+const GOALS=[[10,2],[11,3],[9,1],[10,1],[11,1]];
+const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
+const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_maze_v8.jpg';crateImg.src='assets/props/crate_v8.png';
+const heroFrames={};function loadSprite(id,src){let im=new Image();im.src=src;heroFrames[id]=im;}
+loadSprite('idle','assets/character/idle/00.png');
+for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)loadSprite(dir+i,'assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
+const floor=new Set(),walls=new Set(),goals=new Set(GOALS.map(([x,y])=>x+','+y));
+const k=(x,y)=>x+','+y,at=(x,y)=>({x:OX+(y-x)*HW,y:OY+(x+y)*HH});
+if(GRID.length!==H || GRID.some(row=>row.length!==W))throw Error('Corrupt level dimensions');
+for(let y=0;y<H;y++)for(let x=0;x<W;x++)(GRID[y][x]==='#'?walls:floor).add(k(x,y));
+if(!floor.has(k(...PLAYER_START))||!floor.has(k(...EXIT))||CRATES_START.length!==5||GOALS.length!==5||GOALS.some(([x,y])=>!floor.has(k(x,y))))throw Error('Invalid crate/exit tile');
+const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
+const hint=document.querySelector('#hint'),ending=document.querySelector('#win');let hintTimer=0;
+let actor=[...PLAYER_START],crates=CRATES_START.map(p=>[...p]),history=[],pending=[],tween=null,facing='walk_right',finished=false,gateOpen=false, muted=false,hasInteracted=false,audioContext=null,startedVictory=false;
+let moves=0,pushes=0;
+const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
+const isFloor=(x,y)=>floor.has(k(x,y));
+const crateAt=(x,y)=>crates.findIndex(b=>b[0]===x&&b[1]===y);
+function message(s,duration=3100){hint.textContent=s;hint.classList.add('show');clearTimeout(hintTimer);hintTimer=setTimeout(()=>hint.classList.remove('show'),duration);}
+function sound(){hasInteracted=true;
+ try{if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume?.();}catch(e){}
+ if(!muted&&!gateOpen&&ambient.paused)ambient.play().catch(()=>{});
 }
-function diamond(x,y,up=0){return [[x,y-HH-up],[x+HW,y-up],[x,y+HH-up],[x-HW,y-up]];}
-function floorTile(c,x,y){
- const p=at(x,y),v=(x*7+y*13)%3;
- texPolygon(c,diamond(p.x,p.y),v,[p.x-HW,p.y-HH,HW*2,HH*2],v===2?'rgba(10,10,20,.14)':null);
- // Grout and small moss cracks directly on the traversable diamond.
- if((x*17+y*23)%9===0){c.strokeStyle='rgba(74,87,62,.55)';c.lineWidth=1;c.beginPath();c.moveTo(p.x-12,p.y+4);c.lineTo(p.x-5,p.y+1);c.lineTo(p.x-1,p.y+8);c.stroke();}
+function beep(f=130,time=.1,v=.035,type='triangle'){
+ if(!audioContext||muted)return;
+ const t=audioContext.currentTime,o=audioContext.createOscillator(),gain=audioContext.createGain();
+ o.type=type;o.frequency.value=f;gain.gain.setValueAtTime(v,t);gain.gain.exponentialRampToValueAtTime(.0001,t+time);
+ o.connect(gain).connect(audioContext.destination);o.start(t);o.stop(t+time);
 }
-function wallTile(c,x,y){
- const p=at(x,y),n=(x*11+y*17)%4,top=diamond(p.x,p.y,WH),a=top;
- // Side polygons and top are cut from the same texture atlas as the floor.
- const L=[a[3],a[2],[p.x,p.y+HH],[p.x-HW,p.y]];
- const R=[a[2],a[1],[p.x+HW,p.y],[p.x,p.y+HH]];
- texPolygon(c,L,4+(n%2),[p.x-HW,p.y-WH,HW,WH+HH],'rgba(2,2,6,.26)');
- texPolygon(c,R,5+(n%2),[p.x,p.y-WH,HW,WH+HH],'rgba(1,3,7,.47)');
- texPolygon(c,a,3+(n%2),[p.x-HW,p.y-HH-WH,HW*2,HH*2], 'rgba(24,15,16,.07)');
- c.strokeStyle='rgba(184,129,85,.17)';c.lineWidth=1;c.beginPath();c.moveTo(p.x-HW+4,p.y-WH-2);c.lineTo(p.x,p.y+HH-WH-2);c.stroke();
-}
-function decoration(){
- if(ambientArt.complete&&ambientArt.naturalWidth)bg.drawImage(ambientArt,0,0,1085,566);
- else{const g=bg.createRadialGradient(540,280,20,540,280,660);g.addColorStop(0,'#201921');g.addColorStop(1,'#050609');bg.fillStyle=g;bg.fillRect(0,0,1085,566);}
- // Architectural torches at the edges only: not gameplay obstacles.
- for(const [x,y] of [[165,159],[935,181]]){
-  let r=bg.createRadialGradient(x,y,0,x,y,156);r.addColorStop(0,'rgba(237,120,49,.25)');r.addColorStop(1,'rgba(0,0,0,0)');bg.fillStyle=r;bg.fillRect(x-156,y-156,312,312);
-  bg.fillStyle='#48372b';bg.fillRect(x-7,y+9,14,18);bg.fillStyle='#f2b55c';bg.beginPath();bg.ellipse(x,y,5,12,0,0,Math.PI*2);bg.fill();
- }
- // Tiny cobwebs above the actual masonry; decorative, not an extra grid.
- for(const [x,y,sgn] of [[48,30,1],[1041,27,-1]]){
-  bg.strokeStyle='rgba(182,168,148,.30)';bg.lineWidth=1;
-  for(let j=0;j<6;j++){bg.beginPath();bg.moveTo(x,y);bg.lineTo(x+sgn*(15+j*13),y+8+j*12);bg.stroke();}
-  for(let d=18;d<60;d+=18){bg.beginPath();bg.arc(x,y,d,0,Math.PI/2,sgn<0);bg.stroke();}
- }
-}
-function paintFloor(){
- bg.clearRect(0,0,1085,566);decoration();
- for(let layer=0;layer<MW+MH-1;layer++)for(let y=0;y<MH;y++){
-   const x=layer-y;if(x>=0&&x<MW&&isFree(x,y))floorTile(bg,x,y);
- }
-}
-function actorSprite(im,x,y,walking){if(!im?.complete||!im.naturalWidth)return;
- const p=at(x,y),h=89,w=h*im.naturalWidth/im.naturalHeight;
- ctx.fillStyle='rgba(0,0,0,.42)';ctx.beginPath();ctx.ellipse(p.x,p.y+4,19,7,0,0,Math.PI*2);ctx.fill();
- ctx.drawImage(im,Math.round(p.x-w/2),Math.round(p.y-h+10),Math.round(w),h);
-}
-function crateSprite(x,y){const p=at(x,y);
- ctx.fillStyle='rgba(0,0,0,.45)';ctx.beginPath();ctx.ellipse(p.x,p.y+6,25,9,0,0,Math.PI*2);ctx.fill();
- if(crateArt.complete&&crateArt.naturalWidth)ctx.drawImage(crateArt,p.x-28,p.y-53,56,58);
- else{ctx.fillStyle='#745039';ctx.fillRect(p.x-20,p.y-38,40,38);}
-}
+function saved(){try{localStorage.setItem('darkness_cellar_v8',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
 function restore(){try{
- const v=JSON.parse(localStorage.getItem('darkness_cellar_v7'));
- if(!v||!Array.isArray(v.boxes)||v.boxes.length!==4||!v.player||!isFree(v.player.x,v.player.y))return;
- const used=new Set(v.boxes.map(p=>k(p.x,p.y)));
- if(used.size!==4||used.has(k(v.player.x,v.player.y))||v.boxes.some(p=>!isFree(p.x,p.y)))return;
- player={...v.player};boxes=v.boxes.map(p=>({...p}));stepCount=v.stepCount|0;pushCount=v.pushCount|0;
- won=player.x===exit.x&&player.y===exit.y;ending.classList.toggle('show',won);
-}catch(e){}}
-function save(){try{localStorage.setItem('darkness_cellar_v7',JSON.stringify({player,boxes,stepCount,pushCount}));}catch(e){}}
-function startSound(){started=true;if(!audio)try{audio=new(window.AudioContext||window.webkitAudioContext)();}catch(e){};
- if(audio?.state==='suspended')audio.resume();if(!muted&&!won&&ambient.paused)ambient.play().catch(()=>{});
+ const a=JSON.parse(localStorage.getItem('darkness_cellar_v8'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==5)return;
+ if(!isFloor(...a.actor)||a.crates.some(p=>!Array.isArray(p)||!isFloor(...p)))return;
+ const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==5||set.has(k(...a.actor)))return;
+ actor=[...a.actor];crates=a.crates.map(p=>[...p]);moves=a.moves|0;pushes=a.pushes|0;
+ gateOpen=GOALS.every(p=>set.has(k(...p)));finished=gateOpen&&actor[0]===EXIT[0]&&actor[1]===EXIT[1];
+ ending.classList.toggle('show',finished);
+ }catch(e){}
 }
-function note(f,d=.13,v=.05){if(!audio||muted)return;const o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.type='triangle';o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+d);}
-function win(){won=true;queued=[];ending.classList.add('show');ambient.pause();victory.currentTime=0;victory.volume=.52;if(!muted)victory.play().catch(()=>{});
- [220,277,330,440,554].forEach((f,i)=>setTimeout(()=>note(f,.7,.08),i*180));save();}
-function step(dx,dy){if(won||motion||(!dx&&!dy))return false;
- const nx=player.x+dx,ny=player.y+dy;if(!isFree(nx,ny)){note(97,.06,.025);return false;}
- const index=boxIndex(nx,ny);let pushed=null;
- if(index>=0){const tx=nx+dx,ty=ny+dy;if(!isFree(tx,ty)||boxIndex(tx,ty)>=0){note(82,.10,.025);return false;}
-  pushed={index,from:{...boxes[index]},to:{x:tx,y:ty}};
+function complete(){gateOpen=true;ambient.pause();victory.currentTime=0; if(!muted)victory.play().catch(()=>{});
+ [196,247,294,392,494].forEach((n,i)=>setTimeout(()=>beep(n,.75,.1,'sine'),i*180));
+ message('Pět kamenných pečetí zapadlo. Východní brána se otevírá...',4800);saved();
+}
+function makeMove(dx,dy){
+ if(finished||tween)return false;
+ const nx=actor[0]+dx,ny=actor[1]+dy;
+ if(!isFloor(nx,ny))return false;
+ const boxIndex=crateAt(nx,ny);let boxMove=null;
+ if(boxIndex!==-1){const bx=nx+dx,by=ny+dy;if(!isFloor(bx,by)||crateAt(bx,by)!==-1)return false;
+  boxMove={i:boxIndex,from:[...crates[boxIndex]],to:[bx,by]};
  }
- history.push({player:{...player},boxes:boxes.map(b=>({...b})),stepCount,pushCount});if(history.length>400)history.shift();
- const from={...player};player={x:nx,y:ny};stepCount++;
- if(pushed){boxes[pushed.index]={...pushed.to};pushCount++;note(68,.24,.08);}else note(142,.05,.022);
- dirFace=(dx-dy)>=0?'walk_right':'walk_left';
- motion={from,to:{...player},pushed,time:performance.now(),duration:pushed?265:170};save();return true;
+ if(nx===EXIT[0]&&ny===EXIT[1]&&!gateOpen){message('Za mříží není průchod. Staré kamenné pečetě ještě nedosedly.');return false;}
+ history.push({actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,gateOpen});if(history.length>700)history.shift();
+ const prev=[...actor];actor=[nx,ny];moves++;
+ if(boxMove){crates[boxIndex]=boxMove.to;pushes++;beep(74,.26,.08,'sawtooth');}
+ else beep(122,.048,.023);
+ facing=(dy-dx)>=0?'walk_right':'walk_left';
+ tween={from:prev,to:[...actor],boxMove,started:performance.now(),duration:boxMove?210:135};
+ if(!gateOpen&&GOALS.every(([x,y])=>crateAt(x,y)!==-1))complete();
+ saved();return true;
 }
-function undo(){if(!history.length)return;queued=[];motion=null;const s=history.pop();player=s.player;boxes=s.boxes;stepCount=s.stepCount;pushCount=s.pushCount;
- won=false;ending.classList.remove('show');victory.pause();victory.currentTime=0;if(started&&!muted)ambient.play().catch(()=>{});note(210);save();}
-function restart(){queued=[];motion=null;history=[];player={...initialPlayer};boxes=initialBoxes.map(b=>({...b}));stepCount=0;pushCount=0;won=false;
- ending.classList.remove('show');victory.pause();victory.currentTime=0;if(started&&!muted){ambient.currentTime=0;ambient.play().catch(()=>{});}save();}
-const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-function shortestPath(goal){
- const source=k(player.x,player.y),target=k(goal.x,goal.y);if(!isFree(goal.x,goal.y)||boxIndex(goal.x,goal.y)>=0)return null;
- const q=[{...player}],before=new Map([[source,null]]);
+function undo(){if(history.length===0)return;
+ pending=[];tween=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;
+ gateOpen=a.gateOpen;finished=false;ending.classList.remove('show');victory.pause();victory.currentTime=0;
+ if(hasInteracted&&!muted&&!gateOpen)ambient.play().catch(()=>{});beep(180,.13,.04);saved();
+}
+function restart(){pending=[];tween=null;history=[];actor=[...PLAYER_START];crates=CRATES_START.map(p=>[...p]);moves=0;pushes=0;gateOpen=false;finished=false;
+ ending.classList.remove('show');victory.pause();victory.currentTime=0;
+ if(hasInteracted&&!muted){ambient.currentTime=0;ambient.play().catch(()=>{});}saved();message('Kamenné bloky se vrátily na své místo.');
+}
+function shortestWalk(to){
+ if(!isFloor(...to)||crateAt(...to)!==-1)return null;
+ const src=k(...actor),dst=k(...to),q=[[...actor]],via=new Map([[src,null]]);
  for(let j=0;j<q.length;j++){
-  let a=q[j];if(k(a.x,a.y)===target)break;
-  for(const [dx,dy] of dirs){const x=a.x+dx,y=a.y+dy,id=k(x,y);
-   if(isFree(x,y)&&boxIndex(x,y)<0&&!before.has(id)){before.set(id,[k(a.x,a.y),dx,dy]);q.push({x,y});}
+  const [x,y]=q[j];if(k(x,y)===dst)break;
+  for(const [dx,dy] of DELTAS){const tx=x+dx,ty=y+dy,z=k(tx,ty);
+   if(!isFloor(tx,ty)||crateAt(tx,ty)!==-1||via.has(z)||(!gateOpen&&tx===EXIT[0]&&ty===EXIT[1]))continue;
+   via.set(z,{from:k(x,y),delta:[dx,dy]});q.push([tx,ty]);
   }
  }
- if(!before.has(target))return null;let route=[],z=target;
- while(z!==source){const [prev,dx,dy]=before.get(z);route.unshift([dx,dy]);z=prev;}
- return route;
+ if(!via.has(dst))return null;
+ const a=[];let p=dst;while(p!==src){const f=via.get(p);a.unshift(f.delta);p=f.from;}return a;
 }
-function click(ev){startSound();if(won)return;
- const bounds=cvs.getBoundingClientRect();const px=(ev.clientX-bounds.left)/bounds.width*1085,py=(ev.clientY-bounds.top)/bounds.height*566;
- // Crate artwork extends above its floor center: test its actual footprint.
- let clicked=-1,bestDist=Infinity;
- boxes.forEach((b,i)=>{const p=at(b.x,b.y),dx=(px-p.x)/30,dy=(py-(p.y-24))/37,d=dx*dx+dy*dy;
-  if(Math.abs(dx)<1.15&&Math.abs(dy)<1.25&&d<bestDist){clicked=i;bestDist=d;}});
- if(clicked>=0){const b=boxes[clicked];let best=null;
-  for(const [dx,dy]of dirs){const target={x:b.x+dx,y:b.y+dy},stand={x:b.x-dx,y:b.y-dy};
-   if(!isFree(target.x,target.y)||boxIndex(target.x,target.y)>=0)continue;
-   const path=shortestPath(stand);if(path&&(!best||path.length<best.length))best=[...path,[dx,dy]];
-  }
-  if(best)queued=best;return;
+function queue(dx,dy){if(finished)return;sound();
+ if(tween){if(pending.length<5)pending.push([dx,dy]);}
+ else if(pending.length){pending.push([dx,dy]);}
+ else {if(!makeMove(dx,dy))beep(91,.10,.03);}
+}
+function onClick(ev){if(finished)return;sound();
+ const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
+ // Actual isometric hit test, including tall crates (their sprites extend above the tile).
+ let best=-1,score=Infinity;
+ for(let i=0;i<crates.length;i++){const p=at(...crates[i]),dx=(sx-p.x)/30,dy=(sy-(p.y-20))/37;
+  if(Math.abs(dx)<1.1&&Math.abs(dy)<1.2&&dx*dx+dy*dy<score){score=dx*dx+dy*dy;best=i;}
  }
- const u=(px-OX)/HW,v=(py-OY)/HH;const x=Math.round((u+v)/2),y=Math.round((v-u)/2);
- if(!isFree(x,y))return;const p=at(x,y);
- if(Math.abs(px-p.x)/HW+Math.abs(py-p.y)/HH>1.20)return;
- const path=shortestPath({x,y});if(path)queued=path;
+ if(best>=0){const b=crates[best];let candidate=null;
+  for(const [dx,dy] of DELTAS){const to=[b[0]+dx,b[1]+dy],stand=[b[0]-dx,b[1]-dy];
+   if(!isFloor(...to)||crateAt(...to)!==-1)continue;
+   const route=shortestWalk(stand);if(route!==null&&(!candidate||route.length<candidate.length))candidate=[...route,[dx,dy]];
+  }
+  if(candidate){pending=candidate;} else message('Z této strany bednu nelze posunout.');return;
+ }
+ const u=(sx-OX)/HW,v=(sy-OY)/HH;const x=Math.round((v-u)/2),y=Math.round((v+u)/2);
+ if(!isFloor(x,y))return;const p=at(x,y);if(Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH>1.35)return;
+ const route=shortestWalk([x,y]);if(route)pending=route;
 }
-cvs.addEventListener('pointerdown',click);
-const keymap={ArrowRight:[1,0],ArrowLeft:[-1,0],ArrowUp:[0,-1],ArrowDown:[0,1],d:[1,0],a:[-1,0],w:[0,-1],s:[0,1],D:[1,0],A:[-1,0],W:[0,-1],S:[0,1]};
-document.addEventListener('keydown',e=>{
- const move=keymap[e.key];if(move){e.preventDefault();startSound();if(queued.length<5)queued.push(move);}
- else if(e.key.toLowerCase()==='z'){e.preventDefault();undo();}
- else if(e.key.toLowerCase()==='r'){e.preventDefault();restart();}
+canvas.addEventListener('pointerdown',onClick);
+document.addEventListener('keydown',ev=>{
+ const keys={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowUp:[-1,0],ArrowDown:[1,0],d:[0,1],a:[0,-1],w:[-1,0],s:[1,0],D:[0,1],A:[0,-1],W:[-1,0],S:[1,0]};
+ if(keys[ev.key]){ev.preventDefault();queue(...keys[ev.key]);}
+ else if(ev.key.toLowerCase()==='z'){ev.preventDefault();undo();}
+ else if(ev.key.toLowerCase()==='r'){ev.preventDefault();restart();}
 });
-document.querySelectorAll('[data-direction]').forEach(b=>b.onclick=()=>{startSound();const dir=b.dataset.direction.split(',').map(Number);if(queued.length<5)queued.push(dir);});
-document.querySelector('#back').onclick=()=>location.href='index.html';
-document.querySelector('#undo').onclick=undo;
-document.querySelector('#reset').onclick=restart;
-document.querySelector('#mute').onclick=()=>{muted=!muted;ambient.muted=muted;victory.muted=muted;if(!muted){startSound();(won?victory:ambient).play().catch(()=>{});}};
-function draw(time){
- ctx.clearRect(0,0,1085,566);ctx.drawImage(off,0,0);
- let x=player.x,y=player.y,walking=false,animBox=null;
- if(motion){let p=Math.min(1,(time-motion.time)/motion.duration),e=p*p*(3-2*p);
-  x=motion.from.x+(motion.to.x-motion.from.x)*e;y=motion.from.y+(motion.to.y-motion.from.y)*e;
-  animBox=motion.pushed;walking=p<1;if(p>=1){motion=null;animBox=null;if(x===exit.x&&y===exit.y&&!won)win();}
+document.querySelectorAll('[data-dx]').forEach(el=>el.addEventListener('click',()=>queue(Number(el.dataset.dx),Number(el.dataset.dy))));
+document.querySelector('#undo').onclick=undo;document.querySelector('#restart').onclick=restart;
+document.querySelector('#back').onclick=()=>{window.location.href='index.html';};
+document.querySelector('#mute').onclick=()=>{muted=!muted;ambient.muted=muted;victory.muted=muted;
+ document.querySelector('#mute').style.opacity=muted?'.4':'1';if(!muted){sound();(gateOpen?victory:ambient).play().catch(()=>{});}
+};
+function frame(now){
+ ctx.clearRect(0,0,1085,566);
+ if(bg.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,1085,566);
+ else{ctx.fillStyle='#1b1519';ctx.fillRect(0,0,1085,566);}
+ let px=actor[0],py=actor[1],walk=false;
+ if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=t*t*(3-2*t);
+  px=tween.from[0]+(tween.to[0]-tween.from[0])*u;
+  py=tween.from[1]+(tween.to[1]-tween.from[1])*u;walk=t<1;
+  if(t>=1){tween=null;if(gateOpen&&actor[0]===EXIT[0]&&actor[1]===EXIT[1]&&!finished){finished=true;ending.classList.add('show');saved();}}
  }
- const shapes=[];
- for(let yy=0;yy<MH;yy++)for(let xx=0;xx<MW;xx++)if(wall.has(k(xx,yy)))shapes.push({type:'wall',x:xx,y:yy,z:xx+yy});
- for(let i=0;i<boxes.length;i++){
-  let b=boxes[i],bx=b.x,by=b.y;
-  if(animBox?.index===i&&motion){const t=Math.min(1,(time-motion.time)/motion.duration),e=t*t*(3-2*t);bx=animBox.from.x+(animBox.to.x-animBox.from.x)*e;by=animBox.from.y+(animBox.to.y-animBox.from.y)*e;}
-  shapes.push({type:'box',x:bx,y:by,z:bx+by+.04});
+ const objs=[];
+ for(let i=0;i<crates.length;i++){
+  let x=crates[i][0],y=crates[i][1];if(tween?.boxMove?.i===i){const a=tween.boxMove,t=Math.min(1,(now-tween.started)/tween.duration),u=t*t*(3-2*t);
+   x=a.from[0]+(a.to[0]-a.from[0])*u;y=a.from[1]+(a.to[1]-a.from[1])*u;
+  }objs.push({type:'crate',x,y,depth:x+y+.03});
  }
- if(!won)shapes.push({type:'hero',x,y,z:x+y+.10});
- shapes.sort((a,b)=>a.z-b.z||({'wall':0,'box':1,'hero':2}[a.type]-{'wall':0,'box':1,'hero':2}[b.type]));
- for(const q of shapes){if(q.type==='wall')wallTile(ctx,q.x,q.y);
-  else if(q.type==='box')crateSprite(q.x,q.y);
-  else{const im=walking?frames[dirFace+'_'+(Math.floor(time/170)%10)]:frames.idle;actorSprite(im,q.x,q.y,walking);}}
- if(queued.length&&!motion&&!won&&time-lastQueued>95){lastQueued=time;const d=queued.shift();if(!step(...d))queued=[];}
- requestAnimationFrame(draw);
+ if(!finished)objs.push({type:'hero',x:px,y:py,depth:px+py+.12});objs.sort((a,b)=>a.depth-b.depth);
+ for(const o of objs){const p=at(o.x,o.y);
+  if(o.type==='crate'){
+   ctx.fillStyle='rgba(0,0,0,.40)';ctx.beginPath();ctx.ellipse(p.x,p.y+8,27,8,0,0,Math.PI*2);ctx.fill();
+   if(crateImg.complete&&crateImg.naturalWidth)ctx.drawImage(crateImg,p.x-31,p.y-57,62,63);
+  }else{
+   ctx.fillStyle='rgba(0,0,0,.40)';ctx.beginPath();ctx.ellipse(p.x,p.y+7,15,6,0,0,Math.PI*2);ctx.fill();
+   const img=walk?heroFrames[facing+(Math.floor(now/155)%10)]:heroFrames.idle;
+   if(img?.complete&&img.naturalWidth){const h=76,w=h*img.naturalWidth/img.naturalHeight;ctx.drawImage(img,p.x-w/2,p.y-h+9,w,h);}
+   else {ctx.fillStyle='#513b40';ctx.fillRect(p.x-10,p.y-40,20,40);}
+  }
+ }
+ // One rendered exit, shown open only after placing all five crates.
+ if(gateOpen&&!finished){const p=at(...EXIT);ctx.fillStyle='rgba(198,138,72,.11)';ctx.beginPath();ctx.ellipse(p.x,p.y-5,33,21,0,0,Math.PI*2);ctx.fill();}
+ if(!tween&&pending.length&&!finished){const next=pending.shift();if(!makeMove(...next)){pending=[];beep(91,.1,.035);}}
+ requestAnimationFrame(frame);
 }
-let painted=false;function ready(){if(!painted&&texture.complete&&texture.naturalWidth&&ambientArt.complete&&ambientArt.naturalWidth){paintFloor();painted=true;}}
-texture.addEventListener('load',ready);ambientArt.addEventListener('load',ready);
-paintFloor();ready();restore();requestAnimationFrame(draw);
+restore();requestAnimationFrame(frame);
 })();
 </script></body></html>

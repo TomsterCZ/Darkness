@@ -393,8 +393,8 @@ const getImage = (key, src) => { const img = new Image(); images[key] = img; img
    and two mutually exclusive transparent chest objects. */
 getImage('room', 'assets/scene/room_without_chest.jpg');
 getImage('roomShift', 'assets/scene/room_bookshelf_open_v6.jpg');
-getImage('chestClosed', 'assets/props/chest_closed_pixel.png');
-getImage('chestOpened', 'assets/props/chest_open_pixel.png');
+getImage('chestClosed', 'assets/props/chest_closed_v8.png');
+getImage('chestOpened', 'assets/props/chest_open_v8.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 function paintChest(ctx) {
@@ -402,8 +402,8 @@ function paintChest(ctx) {
   if(img?.complete && img.naturalWidth) {
     // Matching front and long rear-edge hinges in both states. Only one
     // sprite is ever drawn over the chest-free room background.
-    if(openChest)ctx.drawImage(img,137,362,195,181);
-    else ctx.drawImage(img,137,406,195,137);
+    if(openChest)ctx.drawImage(img,136,356,198,187);
+    else ctx.drawImage(img,137,402,198,141);
   }
 }
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
