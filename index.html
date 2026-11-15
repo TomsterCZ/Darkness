@@ -392,9 +392,9 @@ const getImage = (key, src) => { const img = new Image(); images[key] = img; img
 /* Production assets: two complete pixel-art room states with NO baked chest,
    and two mutually exclusive transparent chest objects. */
 getImage('room', 'assets/scene/room_without_chest.jpg');
-getImage('roomShift', 'assets/scene/room_bookshelf_open.jpg');
-getImage('chestClosed', 'assets/props/chest_closed_pixel.png');
-getImage('chestOpened', 'assets/props/chest_open_pixel.png');
+getImage('roomShift', 'assets/scene/room_bookshelf_open_v6.jpg');
+getImage('chestClosed', 'assets/props/chest_closed_v6.png');
+getImage('chestOpened', 'assets/props/chest_open_v6.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 function paintChest(ctx) {

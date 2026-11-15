@@ -1,370 +1,245 @@
 <!doctype html>
-<html lang="cs"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Darkness — Sklepení</title>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darkness — Kamenné sklepení</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#06060a}
-body{min-height:100vh;display:flex;align-items:center;justify-content:center;color:#d3b08a}
-#stage{position:relative;width:min(1200px,100vw);aspect-ratio:1085/566;background:#07070b;overflow:hidden}
-canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none;cursor:pointer}
-#buttons{position:absolute;top:12px;right:12px;display:flex;gap:8px;opacity:.56;transition:opacity .2s}
-#buttons:hover,#buttons:focus-within{opacity:1}
-button{border:1px solid #69503b;background:rgba(13,11,13,.75);color:#ddbe90;font:24px Georgia,serif;width:38px;height:38px;cursor:pointer;border-radius:3px}
-button:hover{background:#3e2b24}
-#ending{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 52% 40%,rgba(9,16,18,.35),rgba(2,3,6,.84));pointer-events:none;font:clamp(17px,3vw,32px) Georgia,serif;letter-spacing:.12em;text-shadow:0 2px 8px #000;color:#eed0a0}
-#ending.show{display:flex}
-#ending span{display:block;font:italic clamp(12px,1.7vw,18px) Georgia,serif;color:#b3aa9e;letter-spacing:.02em;margin-top:16px}
-</style></head><body>
-<div id="stage"><canvas id="view" width="1085" height="566" aria-label="Podzemní kamenné bludiště se třemi posuvnými bednami"></canvas>
-<div id="buttons"><button id="back" aria-label="Vrátit se do kobky" title="Vrátit se do kobky">↶</button><button id="undo" aria-label="Vrátit jeden krok" title="Zpět">↰</button><button id="restart" aria-label="Začít hádanku znovu" title="Znovu">↻</button><button id="mute" aria-label="Přepnout hudbu" title="Hudba">♫</button></div>
-<div id="ending">PRŮCHOD JE VOLNÝ<span>Za chladnou branou začíná další tajemství...</span></div>
-<audio id="dark" src="assets/music/before_the_light_soft_soundblaster.ogg" loop preload="none"></audio>
-<audio id="light" src="assets/music/whisper_under_stone_soundblaster.ogg" loop preload="none"></audio>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#030405;color:#cfbb9b}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
+#stage{position:relative;width:min(1220px,100vw);aspect-ratio:1085 / 566;overflow:hidden;background:#07070c}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;cursor:pointer}
+#actions{position:absolute;top:12px;right:13px;display:flex;gap:7px;opacity:.54;transition:opacity .2s}
+#actions:hover,#actions:focus-within{opacity:1}
+button{border:1px solid #79654d;border-radius:4px;width:36px;height:36px;font:22px Georgia,serif;cursor:pointer;background:rgba(13,12,14,.80);color:#ddc2a3}
+button:hover,button:focus-visible{background:rgba(93,66,49,.9);outline-color:#d9b98b}
+#touchpad{position:absolute;left:10px;bottom:10px;display:none;gap:5px;opacity:.67}
+#touchpad button{width:45px;height:45px}
+#win{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;pointer-events:none;background:radial-gradient(ellipse at 52% 42%,rgba(5,9,12,.35),rgba(1,2,5,.86));font:clamp(19px,3.1vw,32px) Georgia,serif;letter-spacing:.08em;color:#e5c99f;text-shadow:0 3px 7px #000}
+#win.show{display:flex}#win small{display:block;margin-top:18px;font-size:clamp(12px,1.65vw,17px);letter-spacing:.02em;color:#b1a597;font-style:italic}
+@media (max-width:720px) and (pointer:coarse){#touchpad{display:flex}}
+</style>
+</head>
+<body>
+<div id="stage">
+<canvas id="game" width="1085" height="566" aria-label="Isometrické sklepení s posuvnými bednami"></canvas>
+<div id="actions"><button id="back" title="Zpět do cely" aria-label="Zpět do cely">↶</button><button id="undo" title="Vrátit tah" aria-label="Vrátit tah">↰</button><button id="restart" title="Znovu" aria-label="Znovu">↻</button><button id="mute" title="Přepnout zvuk" aria-label="Přepnout zvuk">♫</button></div>
+<div id="touchpad"><button data-move="0,-1" aria-label="Severovýchod">↗</button><button data-move="1,0" aria-label="Jihovýchod">↘</button><button data-move="0,1" aria-label="Jihozápad">↙</button><button data-move="-1,0" aria-label="Severozápad">↖</button></div>
+<div id="win" aria-live="polite">PRŮCHOD JE VOLNÝ<small>Staré kameny konečně ustoupily...</small></div>
+<audio id="ambient" src="assets/music/before_the_light_soft_soundblaster.ogg" loop preload="none"></audio>
+<audio id="victory" src="assets/music/whisper_under_stone_soundblaster.ogg" loop preload="none"></audio>
 </div>
 <script>
 (() => {
 'use strict';
-/* Actual Sokoban pushing in narrow, enclosed corridors, with undo and reset. */
-const PLAN = [
-"###############",
-"#.#.#.B....#.E#",
-"#..##.###.....#",
-"#.#....#.#.#..#",
-"#..##.....##..#",
-"#.#.###B..#.#.#",
-"#..###..#..####",
-"#@B.....#.#.#.#",
-"###############"
-], GW=15,GH=9,HW=42,HH=18,OX=467,OY=389,AX=15,AY=17;
-const canvas=document.querySelector('#view'),g=canvas.getContext('2d');
-g.imageSmoothingEnabled=false;
-const bg=document.createElement('canvas');bg.width=1085;bg.height=566;
-const bgc=bg.getContext('2d');
-/* The painterly isometric dungeon scene is the full background.
-   Logic overlays use subtle shadows rather than a schematic game grid. */
-const paintedRoom=new Image();
-paintedRoom.onload=()=>paintStatic();
-paintedRoom.src='assets/scene/cellar_single_scene.jpg';
-const walkable=new Set(),walls=new Set(),starting=[],initialPlayer={x:0,y:0},exit={x:0,y:0};
-const key=(x,y)=>x+','+y;
-for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
- const c=PLAN[y][x];if(c==='#')walls.add(key(x,y));else walkable.add(key(x,y));
- if(c==='B')starting.push({x,y});if(c==='@'){initialPlayer.x=x;initialPlayer.y=y;}
- if(c==='E'){exit.x=x;exit.y=y;}
+/* The displayed stone obstacles and this collision blueprint are composed
+   from the SAME immutable tile matrix. The room is pre-rendered once, and
+   only player and crates are painted dynamically. Never stack two maps. */
+const GRID = [
+  '..###..##',
+  '..B..#...',
+  '..#..#.#E',
+  'S#..#..#.',
+  'B...#...#',
+  '##.B..#.#',
+  '####...##'
+];
+const W=9,H=7,OX=480,OY=218,HALF_W=31,HALF_H=17;
+const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
+ctx.imageSmoothingEnabled=false;
+const floor=new Set(),walls=new Set(),startCrates=[];
+let start={x:0,y:0},exit={x:0,y:0};
+const key=(x,y)=>`${x},${y}`;
+const at=(x,y)=>({x:OX+(x-y)*HALF_W,y:OY+(x+y)*HALF_H});
+for(let y=0;y<H;y++) for(let x=0;x<W;x++) {
+  const v=GRID[y][x];
+  if(v==='#') walls.add(key(x,y)); else floor.add(key(x,y));
+  if(v==='S') start={x,y};
+  if(v==='E') exit={x,y};
+  if(v==='B') startCrates.push({x,y});
 }
-let person={...initialPlayer},blocks=starting.map(p=>({...p})),moves=0,pushes=0,won=false,stack=[],pending=[],tween=null;
-const musicDark=document.querySelector('#dark'),musicLight=document.querySelector('#light');
-const endScreen=document.querySelector('#ending');const muteButton=document.querySelector('#mute');
-musicDark.volume=.24;musicLight.volume=0;
-let muted=false, audio=null,lastMove=0,fadeStart=0,everPlayed=false;
-const sprites={};
-function loadSprite(name,file){let im=new Image();im.src=file;sprites[name]=im;}
-loadSprite('idle','assets/character/idle/00.png');
-loadSprite('crate','assets/props/crate_pixel.png');
-for(let i=0;i<10;i++){
- loadSprite('right'+i,'assets/character/walk_right/'+String(i).padStart(2,'0')+'.png');
- loadSprite('left'+i,'assets/character/walk_left/'+String(i).padStart(2,'0')+'.png');
-}
-let facing='right';
-const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
-function rand(x,y,k=0){let n=(x*374761393+y*668265263+k*1442695041)|0;n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967295;}
-function at(x,y){return {x:OX+(x-y)*HW,y:OY-x*AX-y*AY};}
-function poly(c,pts,col,stroke){c.fillStyle=col;c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=1;c.stroke();}}
-function line(c,x,y,x2,y2,color,width=1){c.strokeStyle=color;c.lineWidth=width;c.beginPath();c.moveTo(x,y);c.lineTo(x2,y2);c.stroke();}
-function glow(c,x,y,r,alpha){const p=c.createRadialGradient(x,y,0,x,y,r);p.addColorStop(0,'rgba(255,143,65,'+alpha+')');p.addColorStop(.28,'rgba(216,88,29,'+(alpha*.37)+')');p.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=p;c.fillRect(x-r,y-r,r*2,r*2);}
-function cobweb(c,x,y,mirror=false){c.save();c.translate(x,y);c.scale(mirror?-1:1,1);c.strokeStyle='rgba(156,143,135,.35)';c.lineWidth=1;
- for(let i=0;i<6;i++)line(c,0,0,Math.cos(i*Math.PI/10)*106,Math.sin(i*Math.PI/10)*108,'rgba(173,163,149,.31)');
- for(let r=17;r<=89;r+=17){c.beginPath();for(let a=0;a<=Math.PI/2;a+=Math.PI/24){let px=Math.cos(a)*r,py=Math.sin(a)*r;if(a===0)c.moveTo(px,py);else c.lineTo(px,py);}c.stroke();}
- c.restore();}
-function drawBackground(){
- let c=bgc;
- c.fillStyle='#08090e';c.fillRect(0,0,1085,566);
- const p=c.createRadialGradient(560,232,80,543,275,720);p.addColorStop(0,'#242029');p.addColorStop(.55,'#17151d');p.addColorStop(1,'#07080e');
- c.fillStyle=p;c.fillRect(0,0,1085,566);
- for(let y=8;y<566;y+=28){let off=(Math.floor(y/28)%2)*35;for(let x=-45+off;x<1100;x+=70){
-   const n=rand(x,y);c.fillStyle=n<.3?'#1d1d24':'#252129';c.fillRect(x,y,68,26);
-   c.fillStyle=n<.3?'#0c0d12':'#111116';c.fillRect(x,y+24,67,3);
-   c.fillStyle='rgba(172,117,79,.055)';c.fillRect(x+2,y+2,64,2);
-   for(let t=0;t<8;t++){c.fillStyle=t%2?'rgba(0,0,0,.27)':'rgba(141,111,83,.10)';c.fillRect(x+3+rand(x,y,t)*59,y+5+rand(y,x,t)*15,2,1);}
- }}
- // Left-side stairwell: no desk, shelves or study objects. The arrival
- // arch is at the SAME side as the playable character's starting tile.
- const ep=at(initialPlayer.x,initialPlayer.y);
- const sx=ep.x-113,sy=ep.y+25;
- c.fillStyle='#080d15';c.beginPath();c.ellipse(sx+16,sy-18,46,93,0,Math.PI,Math.PI*2);c.lineTo(sx+62,sy+58);c.lineTo(sx-30,sy+58);c.closePath();c.fill();
- c.strokeStyle='#4e494e';c.lineWidth=17;c.beginPath();c.ellipse(sx+16,sy-17,48,96,0,Math.PI,Math.PI*2);c.stroke();
- c.strokeStyle='#76615a';c.lineWidth=3;c.stroke();
- for(let i=0;i<5;i++){
-   let yy=sy+8+i*12;poly(c,[[sx-29-i*4,yy],[sx+40-i*4,yy-6],[sx+59-i*4,yy+2],[sx-9-i*4,yy+12]],i%2?'#2b323c':'#38404a','#0d131d');
-   line(c,sx-15-i*4,yy+6,sx+43-i*4,yy,'rgba(70,126,163,.36)',2);
- }
- // Perimeter vignette, cobwebs and hanging iron chains.
- cobweb(c,20,10);cobweb(c,1060,12,true);
- for(let xx of [157,894]){for(let y=-15;y<116;y+=19){
-  c.strokeStyle='#56443a';c.lineWidth=4;c.beginPath();c.ellipse(xx+(Math.round(y/19)%2)*3,y,8,13,-.2,0,Math.PI*2);c.stroke();
-  c.strokeStyle='#a07147';c.lineWidth=1;c.stroke();
- }}
- for(let i=0;i<55;i++){const x=rand(i,3)*1080,y=520+rand(8,i)*44;c.fillStyle='rgba(151,104,77,'+(rand(i,24)*.13)+')';c.fillRect(x,y,1+rand(i,2)*3,1);}
- // Distant warm sconces, visible only at the edges of the cellar.
- glow(c,115,158,228,.24);glow(c,929,177,228,.26);glow(c,825,515,200,.11);
-}
-function diamond(c,X,Y,top,color,outline){
- const pts=[[X,Y-HH-top],[X+HW,Y-top],[X,Y+HH-top],[X-HW,Y-top]];
- poly(c,pts,color,outline);return pts;
-}
-function floorTile(x,y){
- const c=bgc,p=at(x,y),n=rand(x,y),r=24+(n*14|0),co='rgb('+(r+15)+','+(r+13)+','+(r+15)+')';
- // Visible thickness makes paths feel like worn flagstones, not schematic squares.
- poly(c,[[p.x-HW,p.y],[p.x,p.y+HH],[p.x,p.y+HH+7],[p.x-HW,p.y+7]],'#11131a');
- poly(c,[[p.x,p.y+HH],[p.x+HW,p.y],[p.x+HW,p.y+7],[p.x,p.y+HH+7]],'#121720');
- diamond(c,p.x,p.y,0,co,'rgba(5,8,12,.85)');
- diamond(c,p.x,p.y,3,'rgba(33,35,43,.37)');
- for(let i=0;i<9;i++){
-  const rx=rand(x*11+i,y*7)*67-33,ry=rand(x+i,y*13+i)*26-13;
-  const tx=p.x+rx,ty=p.y+ry;
-  if(Math.abs(rx)/HW+Math.abs(ry)/HH<.87){
-   c.fillStyle=i%4?'rgba(162,133,104,.12)':'rgba(17,70,81,.22)';
-   c.fillRect(tx|0,ty|0,(i%3)+1,1+(i%2));
-  }
- }
- if(n>.64){
-  line(c,p.x-13,p.y-4,p.x-4,p.y+2,'rgba(5,8,12,.49)');
-  line(c,p.x-4,p.y+2,p.x+1,p.y+9,'rgba(5,8,12,.49)');
- }
- if(n<.31){
-  c.fillStyle='rgba(35,64,45,.68)';c.fillRect(p.x-16,p.y+3,9,2);c.fillRect(p.x-11,p.y+1,5,2);
- }
- if(n>.79){
-  c.fillStyle='rgba(45,112,139,.10)';c.beginPath();c.ellipse(p.x+7,p.y+2,11,3,0,0,Math.PI*2);c.fill();
- }
-}
-function stoneWall(c,x,y){
- const p=at(x,y),h=42,n=rand(x,y),r=51+(n*22|0);
- const front='rgb('+(r-4)+','+(r-9)+','+(r-10)+')',side='rgb('+(r-16)+','+(r-17)+','+(r-15)+')';
- // Tall dark basalt wall with visible top and two vertical faces.
- poly(c,[[p.x-HW,p.y-h],[p.x,p.y+HH-h],[p.x,p.y+HH+5],[p.x-HW,p.y+5]],front,'#19171c');
- poly(c,[[p.x,p.y+HH-h],[p.x+HW,p.y-h],[p.x+HW,p.y+5],[p.x,p.y+HH+5]],side,'#121317');
- diamond(c,p.x,p.y,h,'rgb('+(r+18)+','+(r+9)+','+(r+5)+')','#1e1d23');
- // Mortar, uneven blocks, chips and lichen on exposed stone.
- line(c,p.x-HW+5,p.y-5,p.x-5,p.y+HH-4,'rgba(16,14,18,.43)',2);
- line(c,p.x+5,p.y+HH-1,p.x+HW-5,p.y-5,'rgba(15,15,20,.45)',2);
- for(let i=0;i<8;i++){
-  const tx=p.x-HW+8+rand(x*17+i,y*3)*55,ty=p.y-h+5+rand(x,y*17+i)*24;
-  if(Math.abs(tx-p.x)/HW+Math.abs((ty+h)-p.y)/HH<.8){
-   c.fillStyle=i%3?'rgba(13,13,17,.23)':'rgba(195,137,91,.13)';
-   c.fillRect(tx|0,ty|0,3+i%3,1+i%2);
-  }
- }
- if(n<.35){
-  c.fillStyle='#35432d';c.fillRect(p.x-HW+9,p.y-h+9,12,3);c.fillRect(p.x-HW+14,p.y-h+11,3,5);
- }
- if(n>.78){
-  c.fillStyle='#171a20';c.fillRect(p.x+7,p.y-h+HH-2,5,19);
-  c.fillStyle='#4f5650';c.fillRect(p.x+8,p.y-h+HH+4,2,9);
- }
-}
-function crate(c,x,y,py,time){
- const p=at(x,y),z=py||0,im=sprites.crate;
- c.fillStyle='rgba(0,0,0,.36)';
- c.beginPath();c.ellipse(p.x,p.y+7,25,7,0,0,Math.PI*2);c.fill();
- if(im?.complete&&im.naturalWidth){
-   c.imageSmoothingEnabled=false;
-   c.drawImage(im,Math.round(p.x-32),Math.round(p.y-63-z),64,69);
- }else{
-   c.fillStyle='#754b32';c.fillRect(p.x-22,p.y-43-z,44,43);
-   c.strokeStyle='#b17f51';c.lineWidth=3;c.strokeRect(p.x-20,p.y-42-z,40,39);
- }
-}
-
-function drawTorch(c,x,y,time){
- glow(c,x,y,115,.35+.03*Math.sin(time/170+x));c.fillStyle='#342b2a';c.fillRect(x-5,y+9,10,17);
- c.fillStyle='#b17b43';c.fillRect(x-2,y+12,4,9);c.fillStyle='#f1a454';
- const r=3+Math.sin(time/120+x)*1.6;
- poly(c,[[x-8,y+7],[x-4,y-8-r],[x,y-22-r],[x+6,y-10-r/2],[x+7,y+7]],'#e48835');
- poly(c,[[x-4,y+7],[x,y-9-r/2],[x+4,y+7]],'#ffd084');
-}
-function drawSpider(c,x,y){
- const p=at(x,y);const sx=p.x,sy=p.y-30;c.strokeStyle='rgba(168,159,145,.30)';c.lineWidth=1;
- for(let k=0;k<5;k++)line(c,sx-30,sy-20,sx-24+k*11,sy+11,'rgba(174,165,155,.29)');
- for(let j=0;j<3;j++){c.beginPath();c.moveTo(sx-28,sy-11+j*8);c.quadraticCurveTo(sx,sy-5+j*7,sx+25,sy-12+j*8);c.stroke();}
-}
-function drawExit(c,time){
- const p=at(exit.x,exit.y),x=p.x,y=p.y,sh=won?0.7:0.24;
- glow(c,x,y-48,120,sh*.33);
- c.fillStyle='#050912';poly(c,[[x-37,y+15],[x-37,y-55],[x-21,y-84],[x+18,y-88],[x+35,y-59],[x+35,y+15]],'#060b10');
- c.strokeStyle='#62534a';c.lineWidth=10;c.beginPath();c.moveTo(x-36,y+18);c.lineTo(x-36,y-53);c.quadraticCurveTo(x-35,y-93,x,y-92);c.quadraticCurveTo(x+35,y-88,x+36,y-53);c.lineTo(x+36,y+18);c.stroke();
- c.strokeStyle='#9a785b';c.lineWidth=2;c.stroke();
- c.fillStyle=won?'rgba(71,134,119,.29)':'rgba(18,35,50,.27)';c.fillRect(x-27,y-54,54,65);
- if(!won){for(let i=-2;i<=2;i++){c.fillStyle='#35383b';c.fillRect(x+i*10-1,y-55,3,72);c.fillStyle='#7c5f49';c.fillRect(x+i*10-1,y-55,1,72);}}
-}
-function paintStatic(){
- bgc.clearRect(0,0,1085,566);
- // The illustrated dungeon IS the map; no additional floor tiles or walls.
- if(paintedRoom.complete&&paintedRoom.naturalWidth){
-   bgc.drawImage(paintedRoom,0,0,1085,566);
-   bgc.fillStyle='rgba(4,6,11,.05)';
-   bgc.fillRect(0,0,1085,566);
- }else drawBackground();
-}
-
-const blockAt=(x,y)=>blocks.findIndex(b=>b.x===x&&b.y===y);
-function valid(x,y){return walkable.has(key(x,y));}
-function save(){try{localStorage.setItem('darkness_isometric_cellar_v5',JSON.stringify({p:person,b:blocks,m:moves,pushes,won}));}catch(e){}}
-function restore(){try{
- const s=JSON.parse(localStorage.getItem('darkness_isometric_cellar_v5'));if(!s||!Array.isArray(s.b)||s.b.length!==3)return;
- if(!valid(s.p.x,s.p.y)||s.b.some(b=>!valid(b.x,b.y)))return;
- const set=new Set(s.b.map(b=>key(b.x,b.y)));if(set.size!==3||set.has(key(s.p.x,s.p.y)))return;
- person=s.p;blocks=s.b;moves=s.m|0;pushes=s.pushes|0;won=!!s.won;
- if(won)endScreen.classList.add('show');
+if(startCrates.length!==3||!floor.has(key(exit.x,exit.y)))throw Error('Invalid cellar level');
+const bg=new Image(),crateSprite=new Image();
+bg.src='assets/scene/cellar_aligned_v6.jpg';
+crateSprite.src='assets/props/crate_v6.png';
+const heroImgs={};
+function load(name,url){const im=new Image();im.src=url;heroImgs[name]=im;}
+load('idle','assets/character/idle/00.png');
+for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)load(`${dir}_${i}`,`assets/character/${dir}/${String(i).padStart(2,'0')}.png`);
+const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');
+ambient.volume=.24;victory.volume=0;
+const win=document.querySelector('#win');
+let actor={...start},crates=startCrates.map(p=>({...p})),moveCount=0,pushCount=0,finished=false;
+let undoStack=[],pending=[],tween=null,facing='walk_right',muted=false,everPlayed=false,audioCtx=null;
+let victoryFadeStart=0,lastQueued=0;
+const valid=(x,y)=>floor.has(key(x,y));
+const crateIndex=(x,y)=>crates.findIndex(p=>p.x===x&&p.y===y);
+function save(){try{localStorage.setItem('darkness_cellar_v6',JSON.stringify({actor,crates,moveCount,pushCount,finished}));}catch(e){}}
+function loadState(){try{
+  const p=JSON.parse(localStorage.getItem('darkness_cellar_v6'));
+  if(!p||!Array.isArray(p.crates)||p.crates.length!==3||!p.actor)return;
+  if(!valid(p.actor.x,p.actor.y)||p.crates.some(b=>!valid(b.x,b.y)))return;
+  const set=new Set(p.crates.map(b=>key(b.x,b.y)));
+  if(set.size!==3||set.has(key(p.actor.x,p.actor.y)))return;
+  actor={...p.actor};crates=p.crates.map(b=>({...b}));moveCount=p.moveCount|0;pushCount=p.pushCount|0;
+  finished=actor.x===exit.x&&actor.y===exit.y;win.classList.toggle('show',finished);
 }catch(e){}}
-function audioStart(){
- try{if(!audio)audio=new(window.AudioContext||window.webkitAudioContext)();
- if(audio.state==='suspended')audio.resume();
- }catch(e){}
- everPlayed=true;
- if(!muted&&!won&&musicDark.paused){musicDark.play().catch(()=>{});}
+function soundStart(){everPlayed=true;
+ try{if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}catch(e){}
+ if(!muted&&!finished&&ambient.paused) ambient.play().catch(()=>{});
 }
-function tone(f,d=.12,v=.04,type='triangle'){
- if(!audio||muted)return;let t=audio.currentTime,o=audio.createOscillator(),g=audio.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+d);
+function beep(freq=.0,dur=.15,vol=.035,type='triangle'){
+ if(!audioCtx||muted)return;
+ const t=audioCtx.currentTime,o=audioCtx.createOscillator(),gain=audioCtx.createGain();
+ o.type=type;o.frequency.value=freq;
+ gain.gain.setValueAtTime(vol,t);gain.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ o.connect(gain).connect(audioCtx.destination);o.start(t);o.stop(t+dur);
 }
-function successSound(){
- if(!muted){[196,247,294,392,493].forEach((f,i)=>setTimeout(()=>tone(f,.75,.12,'sine'),i*185));}
- musicDark.pause();musicLight.currentTime=0;musicLight.volume=0;
- if(!muted)musicLight.play().catch(()=>{});
- fadeStart=performance.now();
+function solved(){
+ finished=true;pending=[];win.classList.add('show');
+ if(!muted){[196,247,294,370,494].forEach((n,i)=>setTimeout(()=>beep(n,.75,.08,'sine'),i*170));}
+ ambient.pause();victory.currentTime=0;victory.volume=0;
+ if(!muted)victory.play().catch(()=>{});
+ victoryFadeStart=performance.now();save();
 }
 function move(dx,dy){
- if(won||tween||(!dx&&!dy))return false;
- const nx=person.x+dx,ny=person.y+dy;
- if(!valid(nx,ny)){tone(108,.055,.025);return false;}
- let ind=blockAt(nx,ny),boxMove=null;
- if(ind!==-1){
-  const tx=nx+dx,ty=ny+dy;
-  if(!valid(tx,ty)||blockAt(tx,ty)!==-1){tone(91,.14,.035);return false;}
-  boxMove={from:{...blocks[ind]},to:{x:tx,y:ty},idx:ind};
+ if(finished||tween||(!dx&&!dy))return false;
+ const nx=actor.x+dx,ny=actor.y+dy;
+ if(!valid(nx,ny)){beep(87,.08,.024);return false;}
+ const i=crateIndex(nx,ny);
+ let boxMove=null;
+ if(i>=0){const tx=nx+dx,ty=ny+dy;
+   if(!valid(tx,ty)||crateIndex(tx,ty)>=0){beep(77,.13,.027);return false;}
+   boxMove={i,from:{...crates[i]},to:{x:tx,y:ty}};
  }
- stack.push({p:{...person},b:blocks.map(b=>({...b})),m:moves,pushes,won});
- const from={...person};person={x:nx,y:ny};moves++;
- if(boxMove){blocks[ind]={...boxMove.to};pushes++;tone(63,.30,.085,'sawtooth');setTimeout(()=>tone(92,.12,.04),60);}
- else tone(118,.046,.023);
- facing=(dx-dy)>=0?'right':'left';
- tween={start:performance.now(),duration:boxMove?250:155,from,to:{...person},boxMove};
- save();
- if(person.x===exit.x&&person.y===exit.y){
-   won=true;pending=[];successSound();
-   setTimeout(()=>endScreen.classList.add('show'),900);
-   save();
- }
- return true;
+ undoStack.push({actor:{...actor},crates:crates.map(p=>({...p})),moveCount,pushCount});
+ if(undoStack.length>500)undoStack.shift();
+ const from={...actor};actor={x:nx,y:ny};moveCount++;
+ if(boxMove){crates[i]={...boxMove.to};pushCount++;beep(65,.32,.065,'sawtooth');}
+ else beep(120,.055,.023);
+ facing=(dx-dy)>=0?'walk_right':'walk_left';
+ tween={from,to:{...actor},start:performance.now(),dur:boxMove?265:170,boxMove};
+ save();return true;
 }
-function undoMove(){
- if(!stack.length||tween)return;
- pending=[];let h=stack.pop();person=h.p;blocks=h.b;moves=h.m;pushes=h.pushes;won=h.won;endScreen.classList.toggle('show',won);tone(190,.16,.06);save();
+function undo(){if(!undoStack.length)return;
+ pending=[];tween=null;const st=undoStack.pop();
+ actor=st.actor;crates=st.crates;moveCount=st.moveCount;pushCount=st.pushCount;
+ finished=false;win.classList.remove('show');victory.pause();victory.currentTime=0;victoryFadeStart=0;
+ if(everPlayed&&!muted)ambient.play().catch(()=>{});
+ beep(185,.15,.047);save();
 }
-function restart(){
- pending=[];tween=null;stack=[];blocks=starting.map(b=>({...b}));person={...initialPlayer};moves=0;pushes=0;won=false;
- endScreen.classList.remove('show');musicLight.pause();musicLight.currentTime=0;fadeStart=0;
- if(everPlayed&&!muted){musicDark.currentTime=0;musicDark.play().catch(()=>{});}
- save();
+function restart(){pending=[];tween=null;undoStack=[];
+ actor={...start};crates=startCrates.map(p=>({...p}));moveCount=0;pushCount=0;finished=false;
+ win.classList.remove('show');victory.pause();victory.currentTime=0;victoryFadeStart=0;
+ if(everPlayed&&!muted){ambient.currentTime=0;ambient.volume=.24;ambient.play().catch(()=>{});}save();
 }
-function pathTo(p){
- const queue=[person],prev=new Map([[key(person.x,person.y),null]]),dest=key(p.x,p.y);
- for(let i=0;i<queue.length;i++){const u=queue[i];if(key(u.x,u.y)===dest)break;
-  for(const [dx,dy]of DIRS){const nx=u.x+dx,ny=u.y+dy,k=key(nx,ny);if(!valid(nx,ny)||blockAt(nx,ny)!==-1||prev.has(k))continue;prev.set(k,[u,dx,dy]);queue.push({x:nx,y:ny});}
- }
- if(!prev.has(dest))return null;let route=[],k=dest;
- while(k!==key(person.x,person.y)){const [p,dx,dy]=prev.get(k);route.unshift([dx,dy]);k=key(p.x,p.y);}
- return route;
-}
-function clickTile(ev){
- audioStart();if(won)return;
- const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
- // Inverse of the exact isometric projection used to render walkable tiles.
- const u=(sx-OX)/HW,v=OY-sy;
- let y=Math.round((v-AX*u)/(AX+AY)),x=Math.round(u+y);
- // A crate is taller than its floor diamond. Check its *visible sprite*
- // before mapping the pointer to the floor, or clicking its front/lid
- // incorrectly selects the cell behind it in the isometric projection.
- const clickedBox=blocks.find(b=>{const p=at(b.x,b.y);
-   return sx>=p.x-29&&sx<=p.x+29&&sy>=p.y-52&&sy<=p.y+13;});
- const exitPos=at(exit.x,exit.y);
- if(clickedBox){x=clickedBox.x;y=clickedBox.y;}
- else if(sx>=exitPos.x-32&&sx<=exitPos.x+32&&sy>=exitPos.y-90&&sy<=exitPos.y+16){x=exit.x;y=exit.y;}
- if(!valid(x,y))return;
- const bi=blockAt(x,y);
- if(bi!==-1){
-   let opt=null;
-   for(const [dx,dy] of DIRS){
-     const stand={x:x-dx,y:y-dy},ahead={x:x+dx,y:y+dy};
-     if(!valid(ahead.x,ahead.y)||blockAt(ahead.x,ahead.y)!==-1)continue;
-     const path=pathTo(stand);if(path!==null&&(!opt||path.length<opt.length))opt=[...path,[dx,dy]];
-   }
-   if(opt){pending=opt;lastMove=0;}
- }else{
-   let path=pathTo({x,y});if(path)pending=path;
- }
-}
-canvas.addEventListener('pointerdown',clickTile);
-document.addEventListener('keydown',ev=>{
- const dir={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1],a:[-1,0],d:[1,0],w:[0,-1],s:[0,1],A:[-1,0],D:[1,0],W:[0,-1],S:[0,1]};
- if(dir[ev.key]){ev.preventDefault();audioStart();pending=[];move(...dir[ev.key]);}
- else if(ev.key.toLowerCase()==='z'){ev.preventDefault();undoMove();}
- else if(ev.key.toLowerCase()==='r'){ev.preventDefault();restart();}
-});
-document.querySelector('#back').onclick=()=>location.href='index.html';
-document.querySelector('#restart').onclick=restart;
-document.querySelector('#undo').onclick=undoMove;
-muteButton.onclick=()=>{
- muted=!muted;musicDark.muted=muted;musicLight.muted=muted;muteButton.style.opacity=muted?'.45':'1';
- if(!muted){audioStart();(won?musicLight:musicDark).play().catch(()=>{});}
-};
-function draw(now){
- g.clearRect(0,0,1085,566);g.drawImage(bg,0,0);
- if(fadeStart){
-  const u=Math.min(1,(now-fadeStart)/2200);
-  musicDark.volume=Math.max(0,.24*(1-u));musicLight.volume=.52*u;
-  if(u>=1)fadeStart=0;
- }
- // Depth-sort all walls, crates, exit and player. Proper occlusion makes
- // moving through the diagonal corridors feel genuinely isometric.
- const things=[];
- // The painted scene already contains all stone wall geometry.
- for(let i=0;i<blocks.length;i++){
-  let p=blocks[i],vx=p.x,vy=p.y;
-  if(tween?.boxMove?.idx===i){const k=Math.min(1,(now-tween.start)/tween.duration),q=k*k*(3-2*k);vx=tween.boxMove.from.x+(p.x-tween.boxMove.from.x)*q;vy=tween.boxMove.from.y+(p.y-tween.boxMove.from.y)*q;}
-  things.push({z:vx+vy+.02,type:'box',x:vx,y:vy,i});
- }
- let px=person.x,py=person.y,walking=false;
- if(tween){const k=Math.min(1,(now-tween.start)/tween.duration);
-  const q=k*k*(3-2*k);px=tween.from.x+(person.x-tween.from.x)*q;py=tween.from.y+(person.y-tween.from.y)*q;walking=k<1;
-  if(k>=1)tween=null;
- }
- if(!won||walking)things.push({z:px+py+.12,type:'person',x:px,y:py});
- things.push({z:exit.x+exit.y+.13,type:'exit',x:exit.x,y:exit.y});
- things.sort((a,b)=>a.z-b.z||({wall:0,exit:1,box:2,person:3}[a.type]-{wall:0,exit:1,box:2,person:3}[b.type]));
- for(let o of things){
-  if(o.type==='box')crate(g,o.x,o.y,0,now);
-  else if(o.type==='exit' && won)drawExit(g,now);
-  else if(o.type==='person'){
-    const p=at(o.x,o.y),idx=(now/180|0)%10;
-    const im=walking?sprites[facing+idx]:sprites.idle;
-    if(im?.complete&&im.naturalWidth){
-      const h=91,w=h*(im.naturalWidth/im.naturalHeight);
-      g.fillStyle='rgba(0,0,0,.47)';g.beginPath();g.ellipse(p.x,p.y+7,18,7,0,0,Math.PI*2);g.fill();
-      g.drawImage(im,p.x-w/2,p.y-h+13,w,h);
-    }else{
-      g.fillStyle='#4b353a';g.beginPath();g.ellipse(p.x,p.y-26,15,28,0,0,Math.PI*2);g.fill();
+const directions=[[1,0],[-1,0],[0,1],[0,-1]];
+function shortestPath(dest){
+ if(!valid(dest.x,dest.y)||crateIndex(dest.x,dest.y)>=0)return null;
+ const origin=key(actor.x,actor.y),target=key(dest.x,dest.y),queue=[{...actor}],came=new Map([[origin,null]]);
+ for(let i=0;i<queue.length;i++){
+  const p=queue[i];if(key(p.x,p.y)===target)break;
+  for(const [dx,dy] of directions){const nx=p.x+dx,ny=p.y+dy,k=key(nx,ny);
+    if(valid(nx,ny)&&crateIndex(nx,ny)<0&&!came.has(k)){
+      came.set(k,{before:key(p.x,p.y),step:[dx,dy]});queue.push({x:nx,y:ny});
     }
   }
  }
- // Sconces glow at different depths; subdued orange highlights, deep shadow.
- // Torchlight and webs are already in the scene's original pixel art.
- const vign=g.createRadialGradient(540,275,220,542,274,690);vign.addColorStop(0,'rgba(0,0,0,0)');vign.addColorStop(1,'rgba(0,0,0,.70)');
- g.fillStyle=vign;g.fillRect(0,0,1085,566);
- if(pending.length&&!tween&&now-lastMove>175){lastMove=now;const [dx,dy]=pending.shift();if(!move(dx,dy))pending=[];}
+ if(!came.has(target))return null;
+ const result=[];let k=target;
+ while(k!==origin){const p=came.get(k);result.unshift(p.step);k=p.before;}
+ return result;
+}
+function clickAt(e){
+ soundStart();if(finished)return;
+ const bb=canvas.getBoundingClientRect();
+ const px=(e.clientX-bb.left)/bb.width*1085,py=(e.clientY-bb.top)/bb.height*566;
+ // Hit-test actual sprite footprint first. Pixel art crates extend ABOVE
+ // the floor tile; inverse-isometric mapping alone misidentified them.
+ let clicked=-1,dist=Infinity;
+ for(let i=0;i<crates.length;i++){
+  const p=at(crates[i].x,crates[i].y),dx=(px-p.x)/29,dy=(py-(p.y-19))/36;
+  if(Math.abs(dx)<1.05&&Math.abs(dy)<1.2&&dx*dx+dy*dy<dist){clicked=i;dist=dx*dx+dy*dy;}
+ }
+ if(clicked>=0){const b=crates[clicked];let best=null;
+  for(const [dx,dy] of directions){const tx=b.x+dx,ty=b.y+dy,stand={x:b.x-dx,y:b.y-dy};
+   if(!valid(tx,ty)||crateIndex(tx,ty)>=0||!valid(stand.x,stand.y)||crateIndex(stand.x,stand.y)>=0)continue;
+   const route=shortestPath(stand);
+   if(route!==null&&(!best||route.length<best.length))best=[...route,[dx,dy]];
+  }
+  if(best){pending=best;lastQueued=0;}
+  return;
+ }
+ // For floor clicks, identify the nearest valid tile within its actual
+ // projected diamond: no hidden snapping through wall artwork.
+ const ux=(px-OX)/HALF_W,uy=(py-OY)/HALF_H;
+ const tx=Math.round((ux+uy)/2),ty=Math.round((uy-ux)/2);
+ if(!valid(tx,ty))return;
+ const p=at(tx,ty);
+ if(Math.abs(px-p.x)/HALF_W+Math.abs(py-p.y)/HALF_H>1.3)return;
+ const route=shortestPath({x:tx,y:ty});if(route)pending=route;
+}
+canvas.addEventListener('pointerdown',clickAt);
+document.addEventListener('keydown',e=>{
+ const keymap={ArrowRight:[1,0],ArrowLeft:[-1,0],ArrowUp:[0,-1],ArrowDown:[0,1],
+  d:[1,0],a:[-1,0],w:[0,-1],s:[0,1],D:[1,0],A:[-1,0],W:[0,-1],S:[0,1]};
+ if(keymap[e.key]){e.preventDefault();soundStart();const d=keymap[e.key];
+   if(tween){pending=[d];} else {pending=[];move(...d);}
+ }else if(e.key.toLowerCase()==='z'){e.preventDefault();undo();}
+ else if(e.key.toLowerCase()==='r'){e.preventDefault();restart();}
+});
+document.querySelectorAll('[data-move]').forEach(b=>b.addEventListener('click',()=>{
+ soundStart();const d=b.dataset.move.split(',').map(Number);
+ if(tween)pending=[d];else{pending=[];move(...d);}
+}));
+document.querySelector('#back').onclick=()=>window.location.href='index.html';
+document.querySelector('#undo').onclick=undo;
+document.querySelector('#restart').onclick=restart;
+document.querySelector('#mute').onclick=()=>{
+ muted=!muted;ambient.muted=muted;victory.muted=muted;
+ document.querySelector('#mute').style.opacity=muted?'.45':'1';
+ if(!muted){soundStart();(finished?victory:ambient).play().catch(()=>{});}
+};
+function draw(now){
+ ctx.clearRect(0,0,1085,566);
+ if(bg.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,1085,566);
+ else {ctx.fillStyle='#12141a';ctx.fillRect(0,0,1085,566);}
+ if(victoryFadeStart){const q=Math.min(1,(now-victoryFadeStart)/2300);
+  ambient.volume=.24*(1-q);victory.volume=.5*q;if(q>=1)victoryFadeStart=0;
+ }
+ let px=actor.x,py=actor.y,walking=false;
+ if(tween){const t=Math.min(1,(now-tween.start)/tween.dur),k=t*t*(3-2*t);
+  px=tween.from.x+(actor.x-tween.from.x)*k;py=tween.from.y+(actor.y-tween.from.y)*k;
+  walking=t<1;
+  if(t>=1){tween=null;if(actor.x===exit.x&&actor.y===exit.y&&!finished)solved();}
+ }
+ const entities=[];
+ for(let i=0;i<crates.length;i++){
+  let x=crates[i].x,y=crates[i].y;
+  if(tween?.boxMove?.i===i){const b=tween.boxMove,t=Math.min(1,(now-tween.start)/tween.dur),k=t*t*(3-2*t);
+   x=b.from.x+(b.to.x-b.from.x)*k;y=b.from.y+(b.to.y-b.from.y)*k;
+  }
+  entities.push({type:'crate',x,y,depth:x+y});
+ }
+ if(!finished)entities.push({type:'hero',x:px,y:py,depth:px+py+.08});
+ entities.sort((a,b)=>a.depth-b.depth);
+ for(const v of entities){const p=at(v.x,v.y);
+  if(v.type==='crate'){
+    ctx.fillStyle='rgba(0,0,0,.48)';ctx.beginPath();ctx.ellipse(p.x,p.y+9,25,8,0,0,Math.PI*2);ctx.fill();
+    if(crateSprite.complete&&crateSprite.naturalWidth){ctx.drawImage(crateSprite,p.x-28,p.y-49,56,62);}
+  }else{
+    ctx.fillStyle='rgba(0,0,0,.52)';ctx.beginPath();ctx.ellipse(p.x,p.y+8,14,5,0,0,Math.PI*2);ctx.fill();
+    const f=(Math.floor(now/165)%10),img=walking?(heroImgs[`${facing}_${f}`]||heroImgs.idle):heroImgs.idle;
+    if(img?.complete&&img.naturalWidth){const height=79,width=height*img.naturalWidth/img.naturalHeight;
+      ctx.drawImage(img,p.x-width/2,p.y-height+9,width,height);
+    }
+  }
+ }
+ if(pending.length&&!tween&&!finished&&now-lastQueued>55){lastQueued=now;const d=pending.shift();
+  if(!move(...d))pending=[];
+ }
  requestAnimationFrame(draw);
 }
-paintStatic();restore();
-if(won&&everPlayed)successSound();
-requestAnimationFrame(draw);
+loadState();requestAnimationFrame(draw);
 })();
-</script></body></html>
+</script>
+</body></html>
