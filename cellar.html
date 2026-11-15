@@ -278,7 +278,15 @@ function clickTile(ev){
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
  // Inverse of the exact isometric projection used to render walkable tiles.
  const u=(sx-OX)/HW,v=(sy-OY)/HH;
- const x=Math.round((u+v)/2),y=Math.round((v-u)/2);
+ let x=Math.round((u+v)/2),y=Math.round((v-u)/2);
+ // A crate is taller than its floor diamond. Check its *visible sprite*
+ // before mapping the pointer to the floor, or clicking its front/lid
+ // incorrectly selects the cell behind it in the isometric projection.
+ const clickedBox=blocks.find(b=>{const p=at(b.x,b.y);
+   return sx>=p.x-29&&sx<=p.x+29&&sy>=p.y-52&&sy<=p.y+13;});
+ const exitPos=at(exit.x,exit.y);
+ if(clickedBox){x=clickedBox.x;y=clickedBox.y;}
+ else if(sx>=exitPos.x-32&&sx<=exitPos.x+32&&sy>=exitPos.y-90&&sy<=exitPos.y+16){x=exit.x;y=exit.y;}
  if(!valid(x,y))return;
  const bi=blockAt(x,y);
  if(bi!==-1){
