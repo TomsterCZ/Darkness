@@ -29,22 +29,24 @@ button:hover{background:#574031}button:focus-visible{outline:2px solid #f3d6a7;o
 // collisions, crate behavior, target sockets and pathfinding. Keep in sync
 // with build_assets.py, which paints the walls and floor from GRID.
 const GRID = [
- '#############',
+ '######.######',
  '#..#........#',
  '#..#..#.#...#',
  '#.....#.#...#',
  '#..#......#.#',
  '#..#..##....#',
  '#.....#..#..#',
- '#......#....#',
+ '.......#....#',
  '#############'
 ];
 const W=13,H=9,HW=36,HH=19,OX=558,OY=99;
-const PLAYER_START=[6,1], EXIT=[1,7];
+// The actual staircase on the left is the entrance; the right-hand arch
+// is the exit. Both border cells are open in GRID and visibly paved.
+const PLAYER_START=[6,0], EXIT=[0,7];
 const CRATES_START=[[5,1],[7,1],[9,2],[10,2],[10,3]];
 const GOALS=[[10,2],[11,3],[9,1],[10,1],[11,1]];
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
-const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_maze_v8.jpg';crateImg.src='assets/props/crate_v8.png';
+const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_maze_entry_exit_v9.jpg';crateImg.src='assets/props/crate_v8.png';
 const heroFrames={};function loadSprite(id,src){let im=new Image();im.src=src;heroFrames[id]=im;}
 loadSprite('idle','assets/character/idle/00.png');
 for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)loadSprite(dir+i,'assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
@@ -71,9 +73,9 @@ function beep(f=130,time=.1,v=.035,type='triangle'){
  o.type=type;o.frequency.value=f;gain.gain.setValueAtTime(v,t);gain.gain.exponentialRampToValueAtTime(.0001,t+time);
  o.connect(gain).connect(audioContext.destination);o.start(t);o.stop(t+time);
 }
-function saved(){try{localStorage.setItem('darkness_cellar_v8',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
+function saved(){try{localStorage.setItem('darkness_cellar_v9',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
 function restore(){try{
- const a=JSON.parse(localStorage.getItem('darkness_cellar_v8'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==5)return;
+ const a=JSON.parse(localStorage.getItem('darkness_cellar_v9'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==5)return;
  if(!isFloor(...a.actor)||a.crates.some(p=>!Array.isArray(p)||!isFloor(...p)))return;
  const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==5||set.has(k(...a.actor)))return;
  actor=[...a.actor];crates=a.crates.map(p=>[...p]);moves=a.moves|0;pushes=a.pushes|0;
@@ -83,7 +85,7 @@ function restore(){try{
 }
 function complete(){gateOpen=true;ambient.pause();victory.currentTime=0; if(!muted)victory.play().catch(()=>{});
  [196,247,294,392,494].forEach((n,i)=>setTimeout(()=>beep(n,.75,.1,'sine'),i*180));
- message('Pět kamenných pečetí zapadlo. Východní brána se otevírá...',4800);saved();
+ message('Pět kamenných pečetí zapadlo. Dveře na východě se otevírají...',4800);saved();
 }
 function makeMove(dx,dy){
  if(finished||tween)return false;
@@ -132,6 +134,14 @@ function queue(dx,dy){if(finished)return;sound();
 }
 function onClick(ev){if(finished)return;sound();
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
+ // The illustrated eastern ARCH is the destination. Clicking directly on
+ // it is equivalent to clicking the corresponding exit tile on the map.
+ if(sx>=925 && sx<=1055 && sy>=147 && sy<=322){
+   if(!gateOpen){message('Dveře zatím drží. Nejprve musí zapadnout všech pět pečetí.');return;}
+   const route=shortestWalk(EXIT);
+   if(route)pending=route;
+   return;
+ }
  // Actual isometric hit test, including tall crates (their sprites extend above the tile).
  let best=-1,score=Infinity;
  for(let i=0;i<crates.length;i++){const p=at(...crates[i]),dx=(sx-p.x)/30,dy=(sy-(p.y-20))/37;
