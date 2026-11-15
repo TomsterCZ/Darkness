@@ -462,7 +462,7 @@ const litHotspots = [
 function currentHotspots() {
   if (gameState === 'dark') return darkHotspots;
   if (shelfOpened) return [
-    { id: 'passage', title: 'Tajný průchod do sklepení', box: [153, 153, 328, 419], to: [270, 525] },
+    { id: 'passage', title: 'Tajný průchod do sklepení', box: [153, 153, 328, 412], to: [270, 525] },
     ...litHotspots.filter(h => h.id !== 'shelf')
   ];
   return litHotspots;
@@ -590,8 +590,8 @@ function paintBookcaseSecret(ctx) {
   ctx.save();
   // Cover the baked-in shelves with solid stone, then reveal the vaulted
   // tunnel. The original bookshelf is drawn ONCE as a rotating leaf.
-  ctx.fillStyle = '#25232b'; ctx.fillRect(122, 95, 241, 347);
-  for (let y = 100; y < 446; y += 25) {
+  ctx.fillStyle = '#25232b'; ctx.fillRect(122, 95, 241, 320);
+  for (let y = 100; y < 415; y += 25) {
     for (let x = 124 + ((y / 25 | 0) % 2) * 17; x < 356; x += 51) {
       ctx.fillStyle = (x + y) % 3 ? '#302b31' : '#373138';
       ctx.fillRect(x, y, 49, 23);
@@ -599,25 +599,25 @@ function paintBookcaseSecret(ctx) {
     }
   }
   ctx.fillStyle = '#15141b';ctx.beginPath();
-  ctx.moveTo(160, 437);ctx.lineTo(160, 194);
+  ctx.moveTo(160, 413);ctx.lineTo(160, 194);
   ctx.quadraticCurveTo(164, 141, 238, 135);
   ctx.quadraticCurveTo(319, 143, 320, 199);
-  ctx.lineTo(320, 437);ctx.closePath();ctx.fill();
+  ctx.lineTo(320, 413);ctx.closePath();ctx.fill();
   const portalGlow = ctx.createRadialGradient(243, 327, 10, 245, 285, 160);
   portalGlow.addColorStop(0,'rgba(17,34,44,.56)');
   portalGlow.addColorStop(1,'rgba(0,0,0,.08)');
-  ctx.fillStyle=portalGlow;ctx.fillRect(160,136,162,302);
+  ctx.fillStyle=portalGlow;ctx.fillRect(160,136,162,277);
   ctx.strokeStyle='#60504a';ctx.lineWidth=9;ctx.beginPath();
-  ctx.moveTo(160,436);ctx.lineTo(160,204);
+  ctx.moveTo(160,413);ctx.lineTo(160,204);
   ctx.quadraticCurveTo(167,136,240,137);
   ctx.quadraticCurveTo(314,137,321,204);
-  ctx.lineTo(321,436);ctx.stroke();
+  ctx.lineTo(321,413);ctx.stroke();
   ctx.strokeStyle='#9d7d62';ctx.lineWidth=2;ctx.stroke();
   // The shelf pivots on its left hinges: narrowing width and skewing as
   // it turns. The original object is never left visible under it.
   ctx.translate(125, 96);
   ctx.transform(Math.max(.055, 1 - .945*k), 0, -.14*k, 1, 0, 0);
-  ctx.drawImage(images.room, 125, 96, 238, 347, 0, 0, 238, 347);
+  ctx.drawImage(images.room, 125, 96, 238, 315, 0, 0, 238, 315);
   ctx.restore();
 }
 
