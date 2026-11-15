@@ -393,43 +393,75 @@ getImage('room', 'assets/scene/dungeon_clean_no_potion_1085x566.png');
 getImage('potionSprite', 'assets/props/potion_table_sprite.png');
 const POTION_POS = { x: 628, y: 283, w: 68, h: 70 };
 getImage('chestOpen', 'assets/props/chest_open.png');
-/* The closed chest is PAINTED INTO the original room. The older
-   'chest_open.png' ALSO contained a second chest and background. We use
-   a masked, single-chest sprite and rebuild a complete alternative room
-   ONCE, with every original chest pixel fully covered before placing it. */
-const CHEST_OPEN_POS = { x: 144, y: 366, w: 188, h: 175 };
-let openChestScene = null;
-getImage('chestOpenClean', 'assets/props/chest_open_clean.svg');
+/* Immutable scene layers. Nothing is ever pasted onto a chest already
+   baked into the background. The base is a completely chest-free room,
+   and closed / open are independent sprites in ONE identical position. */
+const CLOSED_BOX = { x:129, y:409, w:211, h:141 };
+const OPEN_BOX = { x:138, y:365, w:200, h:181 };
+let cleanRoom = null, closedChest = null, openedChest = null, stoneTile = null;
 
-function getOpenChestScene() {
-  if (openChestScene) return openChestScene;
-  const room = images.room, openSprite = images.chestOpenClean;
-  if (!room?.naturalWidth || !openSprite?.naturalWidth) return null;
-  const scene = document.createElement('canvas');
-  scene.width = 1085; scene.height = 566;
-  const sc = scene.getContext('2d');
-  sc.imageSmoothingEnabled = false;
-  sc.drawImage(room, 0, 0, 1085, 566);
-
-  // The old chest occupies x ~145..329, y ~419..538.
-  // Erase an intentionally LARGER area, including its silhouette,
-  // shadow and lid. This is essential: the old partial mask left
-  // some chest edges underneath and caused the persistent double image.
-  const patch = document.createElement('canvas');
-  patch.width = 240; patch.height = 158;
-  const pc = patch.getContext('2d', { willReadFrequently: true });
-  pc.drawImage(room, 353, 397, 157, 158, 0, 0, 240, 158);
-  const pixels = pc.getImageData(0, 0, 240, 158);
-  for (let y = 0; y < 158; y++) for (let x = 0; x < 240; x++) {
-    const edge = Math.min(x, y, 239 - x, 157 - y);
-    pixels.data[(y * 240 + x) * 4 + 3] = Math.round(255 * Math.min(1, edge / 12));
+function featherLayer(img, sx, sy, sw, sh, mask) {
+  const c=document.createElement('canvas');c.width=sw;c.height=sh;
+  const t=c.getContext('2d',{willReadFrequently:true});t.drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+  t.globalCompositeOperation='destination-in';
+  t.fillStyle='#fff';t.beginPath();mask(t);t.fill();
+  t.globalCompositeOperation='source-over';
+  return c;
+}
+function createChestLayers() {
+  if(cleanRoom) return true;
+  if(!images.room?.naturalWidth || !images.chestOpen?.naturalWidth) return false;
+  const original=images.room;
+  const c=document.createElement('canvas');c.width=1085;c.height=566;
+  const t=c.getContext('2d');t.imageSmoothingEnabled=false;
+  t.drawImage(original,0,0);
+  // Source a piece of the SAME floor and masonry from the right of the
+  // chest. Patch covers every original chest pixel, including its shadow.
+  const p=document.createElement('canvas');p.width=242;p.height=158;
+  const pt=p.getContext('2d',{willReadFrequently:true});
+  pt.drawImage(original,354,397,232,159,0,0,242,158);
+  const dat=pt.getImageData(0,0,242,158);
+  for(let y=0;y<158;y++)for(let x=0;x<242;x++){
+    const edge=Math.min(x,y,241-x,157-y);
+    dat.data[(y*242+x)*4+3]=Math.max(0,Math.min(255,edge*38));
   }
-  pc.putImageData(pixels, 0, 0);
-  sc.drawImage(patch, 120, 396);
-  // This file is a single masked chest, not the old scene-with-two-chests.
-  sc.drawImage(openSprite, CHEST_OPEN_POS.x, CHEST_OPEN_POS.y, CHEST_OPEN_POS.w, CHEST_OPEN_POS.h);
-  openChestScene = scene;
-  return scene;
+  pt.putImageData(dat,0,0);
+  t.drawImage(p,116,398);
+  cleanRoom=c;
+  // Closed object is cropped DIRECTLY from original artwork, maintaining
+  // pixel-perfect color, perspective and lighting.
+  closedChest=featherLayer(original,CLOSED_BOX.x,CLOSED_BOX.y,CLOSED_BOX.w,CLOSED_BOX.h,
+    q=>{q.moveTo(5,65);q.quadraticCurveTo(11,20,53,13);q.lineTo(157,9);
+    q.quadraticCurveTo(208,10,207,54);q.lineTo(207,131);
+    q.quadraticCurveTo(110,144,11,137);q.closePath();});
+  // The old open PNG includes a SECOND closed chest on its left. Clip
+  // that ENTIRE second object away, preserving only the actual open lid
+  // and front body. The cropped open sprite replaces, never overlays,
+  // the closed one.
+  openedChest=featherLayer(images.chestOpen,0,0,244,216,
+    q=>{q.moveTo(77,73);q.quadraticCurveTo(91,40,118,35);
+    q.lineTo(205,25);q.quadraticCurveTo(231,36,228,85);
+    q.lineTo(214,108);q.lineTo(242,118);q.lineTo(242,200);
+    q.lineTo(83,209);q.lineTo(79,156);q.lineTo(56,126);
+    q.quadraticCurveTo(60,89,77,73);q.closePath();});
+  // A repeating patch of the existing hand-painted masonry for the
+  // passage wall, avoiding flat painted vector rectangles.
+  stoneTile=document.createElement('canvas');stoneTile.width=80;stoneTile.height=76;
+  stoneTile.getContext('2d').drawImage(original,352,205,80,76,0,0,80,76);
+  return true;
+}
+function paintChest(ctx) {
+  if (!createChestLayers()) return;
+  ctx.drawImage(cleanRoom,0,0);
+  if(openChest) {
+    ctx.save();ctx.beginPath();ctx.rect(OPEN_BOX.x,OPEN_BOX.y,OPEN_BOX.w,OPEN_BOX.h);ctx.clip();
+    // A FULL overlay-free replacement: only the open object's alpha
+    // is composited onto the already chest-free scene.
+    ctx.drawImage(openedChest,55,22,189,189,OPEN_BOX.x,OPEN_BOX.y,OPEN_BOX.w,OPEN_BOX.h);
+    ctx.restore();
+  }else {
+    ctx.drawImage(closedChest,CLOSED_BOX.x,CLOSED_BOX.y);
+  }
 }
 getImage('roomDark', 'assets/scene/dungeon_dark_1085x566.png');
 getImage('matchbox', 'assets/items/matchbox_closed.png');
@@ -585,39 +617,52 @@ function rotateBookcase() {
   requestAnimationFrame(tick);
 }
 function paintBookcaseSecret(ctx) {
-  if (shelfMix <= 0 || !images.room?.naturalWidth) return;
-  const k = shelfMix;
+  if(shelfMix<=0 || !createChestLayers())return;
+  const k=shelfMix;
   ctx.save();
-  // Cover the baked-in shelves with solid stone, then reveal the vaulted
-  // tunnel. The original bookshelf is drawn ONCE as a rotating leaf.
-  ctx.fillStyle = '#25232b'; ctx.fillRect(122, 95, 241, 320);
-  for (let y = 100; y < 415; y += 25) {
-    for (let x = 124 + ((y / 25 | 0) % 2) * 17; x < 356; x += 51) {
-      ctx.fillStyle = (x + y) % 3 ? '#302b31' : '#373138';
-      ctx.fillRect(x, y, 49, 23);
-      ctx.fillStyle = 'rgba(0,0,0,.36)'; ctx.fillRect(x, y + 22, 49, 2);
-    }
+  // From the original stone material, rebuild the wall BEHIND the
+  // bookshelf. Keep this treatment tightly limited to its old footprint.
+  ctx.beginPath();ctx.rect(87,100,267,316);ctx.clip();
+  ctx.fillStyle=ctx.createPattern(stoneTile,'repeat');ctx.fillRect(87,100,267,316);
+  // Proper arched passage with stone thickness, steps and recessed shadow.
+  ctx.save();ctx.translate(88,0);
+  ctx.fillStyle='#14141b';ctx.beginPath();ctx.moveTo(18,418);ctx.lineTo(18,223);
+  ctx.quadraticCurveTo(21,143,119,141);ctx.quadraticCurveTo(215,149,216,232);
+  ctx.lineTo(216,418);ctx.closePath();ctx.fill();
+  const dark=ctx.createLinearGradient(30,178,192,400);
+  dark.addColorStop(0,'#07121c');dark.addColorStop(.5,'#090d13');dark.addColorStop(1,'#020408');
+  ctx.fillStyle=dark;ctx.beginPath();ctx.moveTo(36,420);ctx.lineTo(36,224);
+  ctx.quadraticCurveTo(42,166,120,165);ctx.quadraticCurveTo(190,168,194,231);
+  ctx.lineTo(194,420);ctx.closePath();ctx.fill();
+  // Cool blue moonlit steps lead DOWN into darkness.
+  for(let j=0;j<6;j++){
+    const y=351+j*11, inset=j*5;
+    ctx.fillStyle=j%2?'#1a2833':'#1e303c';
+    ctx.beginPath();ctx.moveTo(52+inset,y);ctx.lineTo(183-inset,y);
+    ctx.lineTo(178-inset,y+7);ctx.lineTo(58+inset,y+7);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(82,137,158,.42)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(56+inset,y);ctx.lineTo(180-inset,y);ctx.stroke();
   }
-  ctx.fillStyle = '#15141b';ctx.beginPath();
-  ctx.moveTo(160, 413);ctx.lineTo(160, 194);
-  ctx.quadraticCurveTo(164, 141, 238, 135);
-  ctx.quadraticCurveTo(319, 143, 320, 199);
-  ctx.lineTo(320, 413);ctx.closePath();ctx.fill();
-  const portalGlow = ctx.createRadialGradient(243, 327, 10, 245, 285, 160);
-  portalGlow.addColorStop(0,'rgba(17,34,44,.56)');
-  portalGlow.addColorStop(1,'rgba(0,0,0,.08)');
-  ctx.fillStyle=portalGlow;ctx.fillRect(160,136,162,277);
-  ctx.strokeStyle='#60504a';ctx.lineWidth=9;ctx.beginPath();
-  ctx.moveTo(160,413);ctx.lineTo(160,204);
-  ctx.quadraticCurveTo(167,136,240,137);
-  ctx.quadraticCurveTo(314,137,321,204);
-  ctx.lineTo(321,413);ctx.stroke();
-  ctx.strokeStyle='#9d7d62';ctx.lineWidth=2;ctx.stroke();
-  // The shelf pivots on its left hinges: narrowing width and skewing as
-  // it turns. The original object is never left visible under it.
-  ctx.translate(125, 96);
-  ctx.transform(Math.max(.055, 1 - .945*k), 0, -.14*k, 1, 0, 0);
-  ctx.drawImage(images.room, 125, 96, 238, 315, 0, 0, 238, 315);
+  // Highlights on rough individual voussoirs, arched masonry.
+  ctx.strokeStyle='#776558';ctx.lineWidth=10;ctx.beginPath();
+  ctx.moveTo(20,418);ctx.lineTo(20,229);
+  ctx.quadraticCurveTo(23,143,119,143);
+  ctx.quadraticCurveTo(215,149,215,230);ctx.lineTo(215,418);ctx.stroke();
+  ctx.strokeStyle='#ad8a68';ctx.lineWidth=2;ctx.stroke();
+  for(let i=0;i<8;i++){const ang=Math.PI+(i+.3)*Math.PI/7;
+    const x=118+94*Math.cos(ang),y=229+78*Math.sin(ang);
+    ctx.strokeStyle='rgba(18,17,21,.7)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+7*Math.cos(ang),y+7*Math.sin(ang));ctx.stroke();
+  }
+  ctx.restore();
+  ctx.restore();
+  // Hinged shelf is a cropped ORIGINAL PHOTO-PIXEL sprite; it turns
+  // toward the viewer with a narrowing profile instead of redrawing it
+  // as an unrelated object. Keep its old location until the turn starts.
+  const width=252*(1-.72*k), slide=210*k, skew=-.08*k;
+  ctx.save();ctx.translate(91+slide,100);
+  ctx.transform(width/252,.04*k,skew,1,0,0);
+  ctx.drawImage(images.room,91,100,252,316,0,0,252,316);
   ctx.restore();
 }
 
@@ -664,7 +709,7 @@ function inspect(id) {
         give('paper'); give('iron_key');
         playChestOpen();
         // Open immediately after the creak; never crossfade two chests.
-        getOpenChestScene();
+        createChestLayers();
         sayAtHero('Klíček zapadne do zámku a víko zavrže a povolí. Uvnitř leží list pergamenu a starý železný klíč.'); gesture('use', 1100);
       } else if (found.chest_key) {
         sayAtHero('Musím klíček držet v ruce, abych truhlu odemkl.'); gesture('examine');
@@ -814,8 +859,9 @@ function frame(now) {
   if (images.roomDark?.complete && images.roomDark.naturalWidth) ctx.drawImage(images.roomDark, 0, 0);
   if (litMix > 0 && images.room?.complete && images.room.naturalWidth) {
     ctx.globalAlpha = litMix;
-    // Render ONE mutually exclusive full-room state: chest closed OR open.
-    ctx.drawImage((openChest && getOpenChestScene()) || images.room, 0, 0);
+    // Exactly one object state, each on a genuine chest-free base.
+    if(createChestLayers()) paintChest(ctx);
+    else ctx.drawImage(images.room,0,0);
     ctx.globalAlpha = 1;
   }
   if (litMix > 0 && shelfMix > 0) {
