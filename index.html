@@ -798,9 +798,15 @@ function frame(now) {
     ctx.imageSmoothingEnabled = false;
     const walkingNow = hero.action === 'walk_right' || hero.action === 'walk_left';
     const mirror = !walkingNow && ((hero.lookX != null && Math.abs(hero.lookX - hero.x) > 40) ? hero.lookX < hero.x : hero.face === 'walk_left');
-    if (mirror) { ctx.save(); ctx.translate(Math.round(hero.x) * 2, 0); ctx.scale(-1, 1); }
+    // Moonlight barely reveals the figure in the unlit opening scene.
+    // Keep the robe almost black instead of fully illuminated on a dark room.
+    ctx.save();
+    const light = Math.max(0, Math.min(1, litMix));
+    ctx.globalAlpha = 0.16 + 0.84 * light;
+    ctx.filter = `brightness(${Math.round(22 + 78 * light)}%)`;
+    if (mirror) { ctx.translate(Math.round(hero.x) * 2, 0); ctx.scale(-1, 1); }
     ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - H), W, H);
-    if (mirror) ctx.restore();
+    ctx.restore();
   }
   if (escaped) {
     ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
