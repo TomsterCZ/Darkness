@@ -12,7 +12,8 @@ import json, re, sys
 J=json.load(open('tools/cellar_walls.json'))
 L=J['lattice']; OX,OY,HW,HH=L['OX'],L['OY'],L['HW'],L['HH']; H=J['h']
 P=lambda c,r:(OX+(r-c)*HW, OY+(c+r)*HH)
-C=lambda c,r:P(c+.5,r+.5)
+PLACE={tuple(int(v) for v in k.split(',')):v for k,v in J.get('place',{}).items()}
+C=lambda c,r:P(*PLACE[(c,r)]) if (c,r) in PLACE else P(c+.5,r+.5)
 def inv(x,y):
     u=(x-OX)/HW; v=(y-OY)/HH; return ((v-u)/2,(v+u)/2)
 def hull(pts):
@@ -52,6 +53,7 @@ cells=set()
 for (c,r) in cand:
     pts=[C(c,r)]+[P(c+.5+dc,r+.5+dr) for dc,dr in((.22,0),(-.22,0),(0,.22),(0,-.22))]
     if not any(inpoly(p,w['base']) for p in pts for w in walls.values()): cells.add((c,r))
+cells|=set(PLACE)                                                  # hand-placed cells are floor by definition
 blocked=[]
 for (c,r) in sorted(cells):
     for dc,dr in((1,0),(0,1)):
@@ -59,17 +61,18 @@ for (c,r) in sorted(cells):
         if n in cells and any(seg_hits(C(c,r),C(*n),w['base']) for w in walls.values()): blocked.append([[c,r],list(n)])
 order=sorted(cells,key=lambda p:(p[1],p[0]))
 if '--board' in sys.argv:
-    idx={p:i for i,p in enumerate(order)}; bl={(tuple(a),tuple(b)) for a,b in blocked}; bl|={(b,a) for a,b in bl}
+    order2=order+[tuple(int(v) for v in k.split(',')) for k in J.get('outer',{}) if k not in J.get('heroOnly',[])]
+    idx={p:i for i,p in enumerate(order2)}; bl={(tuple(a),tuple(b)) for a,b in blocked}; bl|={(b,a) for a,b in bl}
     with open(sys.argv[sys.argv.index('--board')+1],'w') as f:
-        f.write(f"{len(order)}\n")
-        for p in order:
+        f.write(f"{len(order2)}\n")
+        for p in order2:
             nb=[]
             for d in((1,0),(-1,0),(0,1),(0,-1)):
                 q=(p[0]+d[0],p[1]+d[1]); nb.append(idx[q] if q in idx and (p,q) not in bl else -1)
             f.write(f"{p[0]} {p[1]} {' '.join(map(str,nb))}\n")
 outer=J.get('outer',{})      # walkway outside the parapet: explicit pixel positions, hero only (no crates)
 data=dict(OX=OX,OY=OY,HW=HW,HH=HH,
-          cells=[list(p) for p in order]+[[int(v) for v in k.split(',')] for k in outer], blocked=blocked, outer=outer,
+          cells=[list(p) for p in order]+[[int(v) for v in k.split(',')] for k in outer], blocked=blocked, outer=outer, heroOnly=J.get('heroOnly',[]), place=J.get('place',{}),
           walls=[dict(n=n,box=[round(v,2) for v in w['box']],hull=[[round(x,1),round(y,1)] for x,y in w['hull']]) for n,w in walls.items()])
 src=open('cellar.html').read()
 block='/*BOARD-BEGIN*/const BOARD='+json.dumps(data,separators=(',',':'))+';/*BOARD-END*/'

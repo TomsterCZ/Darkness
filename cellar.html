@@ -33,15 +33,16 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 // open floor, which steps a wall blocks, and a silhouette for every wall so that whatever
 // stands behind a wall is hidden by it. Nothing here is drawn as a second "map" over the art.
 // ---------------------------------------------------------------------------------------------
-/*BOARD-BEGIN*/const BOARD={"OX":564.1,"OY":80.2,"HW":37.6,"HH":19.2,"cells":[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,7],[8,7],[9,7],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[4,9],[5,9],[6,9],[7,9],[8,9],[9,9],[4,10],[5,10],[6,10],[7,10],[8,10],[9,10],[0,8],[0,9],[-1,9],[-2,9],[0,10],[0,11],[0,12],[1,12],[2,12],[3,12],[4,12],[5,12],[6,12],[7,12],[8,12],[9,12],[10,12]],"blocked":[[[3,2],[4,2]],[[3,3],[4,3]],[[4,4],[4,5]],[[5,4],[5,5]],[[6,4],[6,5]],[[7,4],[7,5]],[[8,4],[8,5]]],"outer":{"0,8":[864.9,253],"0,9":[902.5,272.2],"-1,9":[938,255],"-2,9":[950,218],"0,10":[898,314],"0,11":[896,352],"0,12":[890,394],"1,12":[872,420],"2,12":[839,437],"3,12":[802,456],"4,12":[764,475],"5,12":[726,494],"6,12":[689,514],"7,12":[652,534],"8,12":[613,551],"9,12":[574,556],"10,12":[536,556]},"walls":[{"n":"WM","box":[4.2,9.1,4.75,5.25],"hull":[[400.6,307.3],[584.6,213.3],[603.4,222.7],[603.4,261.7],[419.4,355.7],[400.6,346.3]]},{"n":"W3","box":[-0.32,3.64,4.12,4.68],"hull":[[584.6,191.3],[730.6,114.3],[749.4,123.7],[749.4,162.7],[603.4,239.7],[584.6,230.3]]},{"n":"W2","box":[3.75,4.26,2.44,4.53],"hull":[[495.6,169.7],[514.4,160.3],[593.4,200.3],[593.4,239.3],[574.6,248.7],[495.6,208.7]]},{"n":"W1","box":[1.65,7.53,-0.54,0.2],"hull":[[260.6,175.3],[490.6,67.3],[509.4,76.7],[509.4,115.7],[279.4,223.7],[260.6,214.3]]},{"n":"W4","box":[-1.01,-0.37,4.72,8.31],"hull":[[755.6,124.7],[774.4,115.3],[914.4,181.3],[914.4,220.3],[895.6,229.7],[755.6,163.7]]},{"n":"W6","box":[3.2,3.75,8.57,11.43],"hull":[[747.6,276.7],[766.4,267.3],[871.4,323.3],[871.4,362.3],[852.6,371.7],[747.6,315.7]]},{"n":"W7a","box":[3.58,6.66,11.11,11.7],"hull":[[732,382.5],[847,323.5],[869,334.5],[869,373.5],[754,432.5],[732,421.5]]},{"n":"W7b","box":[6.65,10.28,11.12,12.24],"hull":[[616,462.5],[732,382.5],[754,393.5],[754,432.5],[638,512.5],[616,501.5]]},{"n":"W8b","box":[9.76,10.75,7.08,12.07],"hull":[[426,383.5],[448,372.5],[651,460.5],[651,499.5],[629,510.5],[426,422.5]]},{"n":"W8j","box":[10.46,11.5,6.83,7.44],"hull":[[392.6,395.3],[427.6,373.3],[446.4,382.7],[446.4,421.7],[411.4,443.7],[392.6,434.3]]},{"n":"W8a","box":[11.18,12.57,3.36,7.24],"hull":[[218,347],[246,333],[416,395],[416,434],[388,448],[218,386]]},{"n":"W9b","box":[10.17,12.07,2.9,3.48],"hull":[[222.6,330.3],[290.6,292.3],[309.4,301.7],[309.4,340.7],[241.4,378.7],[222.6,369.3]]},{"n":"W9a","box":[9.91,10.47,0.61,3.36],"hull":[[195.6,252.7],[214.4,243.3],[315.4,297.3],[315.4,336.3],[296.6,345.7],[195.6,291.7]]},{"n":"W5a","box":[-0.73,-0.16,7.91,8.53],"hull":[[871,190.9],[889,179.0],[909,190.0],[909,229.0],[891,240.9],[871,229.9]]},{"n":"W5b","box":[0.92,3.65,8.13,9.05],"hull":[[747,274.0],[835,215.0],[855,226.0],[855,265.0],[767,324.0],[747,313.0]]}]};/*BOARD-END*/
+/*BOARD-BEGIN*/const BOARD={"OX":564.1,"OY":80.2,"HW":37.6,"HH":19.2,"cells":[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[10,3],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,7],[8,7],[9,7],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[4,9],[5,9],[6,9],[7,9],[8,9],[9,9],[4,10],[5,10],[6,10],[7,10],[8,10],[9,10],[0,8],[0,9],[1,9],[1,10],[-1,9],[-2,9],[13,9],[14,9],[15,9]],"blocked":[[[3,2],[4,2]],[[3,3],[4,3]],[[4,4],[4,5]],[[5,4],[5,5]],[[6,4],[6,5]],[[7,4],[7,5]],[[8,4],[8,5]]],"outer":{"0,8":[864.9,253],"0,9":[902.5,272.2],"1,9":[864.9,291.4],"1,10":[902.5,310.6],"-1,9":[938,255],"-2,9":[950,218],"13,9":[486,531],"14,9":[452,541],"15,9":[418,549]},"heroOnly":["-2,9","13,9","14,9","15,9"],"place":{"10,3":[10.72,4.02],"10,4":[10.72,4.86],"10,5":[10.66,5.68],"10,6":[10.58,6.45]},"walls":[{"n":"WM","box":[4.2,9.1,4.75,5.25],"hull":[[400.6,307.3],[584.6,213.3],[603.4,222.7],[603.4,261.7],[419.4,355.7],[400.6,346.3]]},{"n":"W3","box":[-0.32,3.64,4.12,4.68],"hull":[[584.6,191.3],[730.6,114.3],[749.4,123.7],[749.4,162.7],[603.4,239.7],[584.6,230.3]]},{"n":"W2","box":[3.75,4.26,2.44,4.53],"hull":[[495.6,169.7],[514.4,160.3],[593.4,200.3],[593.4,239.3],[574.6,248.7],[495.6,208.7]]},{"n":"W1","box":[1.65,7.53,-0.54,0.2],"hull":[[260.6,175.3],[490.6,67.3],[509.4,76.7],[509.4,115.7],[279.4,223.7],[260.6,214.3]]},{"n":"W4","box":[-1.01,-0.37,4.72,8.31],"hull":[[755.6,124.7],[774.4,115.3],[914.4,181.3],[914.4,220.3],[895.6,229.7],[755.6,163.7]]},{"n":"W6","box":[3.2,3.75,8.57,11.43],"hull":[[747.6,276.7],[766.4,267.3],[871.4,323.3],[871.4,362.3],[852.6,371.7],[747.6,315.7]]},{"n":"W7a","box":[3.58,6.66,11.11,11.7],"hull":[[732,382.5],[847,323.5],[869,334.5],[869,373.5],[754,432.5],[732,421.5]]},{"n":"W7b","box":[6.65,10.28,11.12,12.24],"hull":[[616,462.5],[732,382.5],[754,393.5],[754,432.5],[638,512.5],[616,501.5]]},{"n":"W8b","box":[9.76,10.75,7.08,12.07],"hull":[[426,383.5],[448,372.5],[651,460.5],[651,499.5],[629,510.5],[426,422.5]]},{"n":"W8j","box":[10.46,11.5,6.83,7.44],"hull":[[392.6,395.3],[427.6,373.3],[446.4,382.7],[446.4,421.7],[411.4,443.7],[392.6,434.3]]},{"n":"W8a","box":[11.18,12.57,3.36,7.24],"hull":[[218,347],[246,333],[416,395],[416,434],[388,448],[218,386]]},{"n":"W9b","box":[10.17,12.07,2.9,3.48],"hull":[[222.6,330.3],[290.6,292.3],[309.4,301.7],[309.4,340.7],[241.4,378.7],[222.6,369.3]]},{"n":"W9a","box":[9.91,10.47,0.61,3.36],"hull":[[195.6,252.7],[214.4,243.3],[315.4,297.3],[315.4,336.3],[296.6,345.7],[195.6,291.7]]},{"n":"W5a","box":[-0.73,-0.16,7.91,8.53],"hull":[[871,190.9],[889,179.0],[909,190.0],[909,229.0],[891,240.9],[871,229.9]]},{"n":"W5b","box":[0.92,3.65,8.13,9.05],"hull":[[747,274.0],[835,215.0],[855,226.0],[855,265.0],[767,324.0],[747,313.0]]}]};/*BOARD-END*/
 const {OX,OY,HW,HH}=BOARD;
 // Level: solver-verified (tools/sokoban_gen.cpp). Crates are pushed, never pulled.
 const START=[8,0];
 const CRATES_START=[[4,5],[2,6],[3,6],[3,7]];
 const GOALS=[[1,6],[2,6],[3,6],[4,6]];
-const VAULT_STAND=[10,12];     // on the lower walkway, right beside the barred vault
+const GATE_TOP=[9,7];          // platform cell behind the parapet, straight above the barred gate
+const GATE_LOW=[13,9];         // standing in the gate mouth on the low ground
+const KEY_CELL=[15,9];         // the key lies on the low ground south-west of the gate
 const PORTAL=[-2,9];           // threshold of the east arch
-const KEY_POS=[484,521];       // the key lies on the vault floor, just behind the grate
 const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,458],[516,472],[516,536]];
 
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
@@ -55,15 +56,15 @@ const ready=i=>i.complete&&i.naturalWidth>0;
 // ---- geometry -------------------------------------------------------------------------------
 const k=(x,y)=>x+','+y;
 const P=(c,r)=>({x:OX+(r-c)*HW,y:OY+(c+r)*HH});           // lattice point -> pixel (floor level)
-const OUTER=BOARD.outer||{};
+const OUTER=BOARD.outer||{},PLACE=BOARD.place||{},HERO_ONLY=new Set(BOARD.heroOnly||[]);
 // Where a cell's centre sits on screen. The painted walls are not perfectly parallel to the paving
 // lattice toward the front of the platform, so the front chamber is gently stretched to hug them;
 // the walkway outside the parapet uses positions read straight off the painting.
-function cen(x,y){const o=OUTER[x+','+y];if(o)return {x:o[0],y:o[1]};let c=x+.5,r=y+.5;
+function cen(x,y){const o=OUTER[x+','+y];if(o)return {x:o[0],y:o[1]};const pl=PLACE[x+','+y];if(pl)return P(pl[0],pl[1]);let c=x+.5,r=y+.5;
+ if(x<=3&&y>=5&&y<=7)c=3.5-(3.5-c)*1.133;                  // the east chamber reaches right up to its back parapet
  if(x>=4&&x<=9&&y>=5&&y<=10){const c0=c;if(r>7.08)c=4+(c-4)*(1-.0133*(r-7.08));if(c0>6.66)r=5+(r-5)*(1+.027*(c0-6.66));}
- else if(x===10)c+=.45*(7.5-r)/3.5;
  return P(c,r);}
-const isOuter=(x,y)=>(x+','+y) in OUTER;
+const KEY_POS=[OUTER[KEY_CELL.join(',')][0],OUTER[KEY_CELL.join(',')][1]+2];
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
 const floor=new Set(BOARD.cells.map(p=>k(...p)));
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
@@ -71,8 +72,14 @@ const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
 const isFloor=(x,y)=>floor.has(k(x,y));
 const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
-if(![START,VAULT_STAND,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
+if(![START,GATE_TOP,GATE_LOW,KEY_CELL,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
 const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
+// Where a step in direction (dx,dy) leads, or null. Once the gate is raised, stepping "into" the parapet
+// above it takes the hero down through the gate to the low ground, and back again.
+function stepTo(x,y,dx,dy){
+ if(canStep(x,y,dx,dy))return [x+dx,y+dy];
+ if(sealedAt!==0&&dy===0){if(dx===1&&x===GATE_TOP[0]&&y===GATE_TOP[1])return [...GATE_LOW];if(dx===-1&&x===GATE_LOW[0]&&y===GATE_LOW[1])return [...GATE_TOP];}
+ return null;}
 
 // ---- state ----------------------------------------------------------------------------------
 const SAVE='darkness_cellar_v13';
@@ -125,22 +132,21 @@ function checkSeals(){if(sealed()||!GOALS.every(([x,y])=>crateAt(x,y)!==-1))retu
  message('Všechny pečetě zapadly. Dole pod plošinou se s rachotem zvedá mříž.',5200);}
 function makeMove(dx,dy){
  if(finished||tween||exitWalk)return false;
- if(!canStep(actor[0],actor[1],dx,dy))return false;
- const nx=actor[0]+dx,ny=actor[1]+dy,bi=crateAt(nx,ny);let boxMove=null;
- if(bi!==-1){if(!canStep(nx,ny,dx,dy)||isOuter(nx+dx,ny+dy)||crateAt(nx+dx,ny+dy)!==-1)return false;boxMove={i:bi,from:[nx,ny],to:[nx+dx,ny+dy]};}
+ const to=stepTo(actor[0],actor[1],dx,dy);if(!to)return false;
+ const [nx,ny]=to,through=Math.abs(nx-actor[0])+Math.abs(ny-actor[1])!==1,bi=crateAt(nx,ny);let boxMove=null;
+ if(bi!==-1){if(through||!canStep(nx,ny,dx,dy)||HERO_ONLY.has(k(nx+dx,ny+dy))||crateAt(nx+dx,ny+dy)!==-1)return false;boxMove={i:bi,from:[nx,ny],to:[nx+dx,ny+dy]};}
  history.push({actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes});if(history.length>900)history.shift();
  const prev=[...actor];actor=[nx,ny];moves++;
  if(boxMove){crates[bi]=boxMove.to;pushes++;sfx.scrape();if(GOALS.some(g=>g[0]===boxMove.to[0]&&g[1]===boxMove.to[1]))setTimeout(sfx.seal,170);}else sfx.step();
- const sdx=cen(nx,ny).x-cen(...prev).x;if(Math.abs(sdx)>2)facing=sdx>0?'walk_right':'walk_left';
- tween={from:prev,to:[...actor],boxMove,started:performance.now(),duration:boxMove?240:150};
+ const sdx=cen(nx,ny).x-cen(...prev).x;if(Math.abs(sdx)>2&&!through)facing=sdx>0?'walk_right':'walk_left';
+ tween={from:prev,to:[...actor],boxMove,through,started:performance.now(),duration:through?760:boxMove?240:150};
+ if(through){sfx.step();setTimeout(sfx.step,260);setTimeout(sfx.step,520);}
  checkSeals();save();return true;
 }
 const at=(p,q)=>p[0]===q[0]&&p[1]===q[1];
 function arrived(){                                           // called when a step has finished
  if(pending.length)return;
- if(at(actor,VAULT_STAND)&&!hasKey){
-  if(sealed()){hasKey=true;invEl.classList.add('has');sfx.key();save();message('Mosazný klíč. Je studený a těžký — tenhle bude patřit k portálu nahoře.',4800);}
-  else message('Za mříží se na zemi leskne klíč. Mříž se ale ani nehne.',4200);}
+ if(at(actor,KEY_CELL)&&!hasKey){hasKey=true;invEl.classList.add('has');sfx.key();save();message('Mosazný klíč. Je studený a těžký — tenhle bude patřit k portálu nahoře.',4800);}
  if(at(actor,PORTAL)){
   if(!hasKey){sfx.bump();message('Portál je zamčený. Bez klíče jím neprojdu.',4200);}
   else{hasKey=false;invEl.classList.remove('has');sfx.unlock();message('Klíč zapadl do zámku. Portál se otevírá…',3600);
@@ -152,7 +158,7 @@ function walkTo(to){
  if(!isFloor(...to)||crateAt(...to)!==-1)return null;
  const src=k(...actor),dst=k(...to),q=[[...actor]],via=new Map([[src,null]]);
  for(let j=0;j<q.length;j++){const [x,y]=q[j];if(k(x,y)===dst)break;
-  for(const [dx,dy] of DELTAS){const z=k(x+dx,y+dy);if(!canStep(x,y,dx,dy)||crateAt(x+dx,y+dy)!==-1||via.has(z))continue;via.set(z,{from:k(x,y),delta:[dx,dy]});q.push([x+dx,y+dy]);}}
+  for(const [dx,dy] of DELTAS){const t=stepTo(x,y,dx,dy);if(!t)continue;const z=k(...t);if(crateAt(...t)!==-1||via.has(z))continue;via.set(z,{from:k(x,y),delta:[dx,dy]});q.push(t);}}
  if(!via.has(dst))return null;const a=[];let p=dst;while(p!==src){const f=via.get(p);a.unshift(f.delta);p=f.from;}return a;
 }
 function queue(dx,dy){if(finished)return;wake();
@@ -162,7 +168,8 @@ function cellAt(sx,sy){let best=null,bd=1.15;for(const key of floor){const [x,y]
 function onClick(ev){if(finished||exitWalk)return;wake();
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
  if(sx>=905&&sx<=1005&&sy>=70&&sy<=232){go(PORTAL,'K portálu se teď nedostanu.');return;}       // the east arch
- if(ctx.isPointInPath(vaultPath,sx,sy)){go(VAULT_STAND,'K mříži se teď nedostanu.');return;}          // the barred vault
+ const low=cellAt(sx,sy),toLow=ctx.isPointInPath(vaultPath,sx,sy)?GATE_LOW:(low&&low[0]>=13?low:null);            // the barred gate and the low ground beyond it
+ if(toLow){if(!sealed())message('Zamřížovaný průchod pod plošinou je zavřený. Za ním se na zemi leskne klíč.',4200);else go(toLow,'K mříži se teď nedostanu.');return;}
  // crates first (their sprites stand taller than the tile), front-most wins
  let best=-1,bd=-1;for(let i=0;i<crates.length;i++){const p=cen(...crates[i]);if(sx>p.x-28&&sx<p.x+28&&sy>p.y-50&&sy<p.y+19&&crates[i][0]+crates[i][1]>bd){bd=crates[i][0]+crates[i][1];best=i;}}
  if(best>=0){const b=crates[best],dx=b[0]-actor[0],dy=b[1]-actor[1];
@@ -191,15 +198,14 @@ function drawKeyOnFloor(c,now){if(!ready(keyImg))return;const [x,y]=KEY_POS,h=20
  const g=c.createRadialGradient(x,y,1,x,y,13);g.addColorStop(0,`rgba(255,206,110,${.3+.2*tw})`);g.addColorStop(1,'rgba(255,190,90,0)');c.fillStyle=g;c.fillRect(x-14,y-14,28,28);
  c.save();c.translate(x,y);c.rotate(1.35);c.drawImage(keyImg,-w/2,-h/2,w,h);c.restore();
  if(tw>.8){c.fillStyle='#fff6d0';c.fillRect(x+3,y-5,1,5);c.fillRect(x+1,y-3,5,1);}}
-function paintScene(now){                                     // the painting, the key on the vault floor, the grate
+function paintScene(now){                                     // the painting, the key on the low ground, the gate's grate
  if(ready(bg))sctx.drawImage(bg,0,0,1085,566);else{sctx.fillStyle='#1b1519';sctx.fillRect(0,0,1085,566);}
  if(!ready(bg))return;
- if(!sealed()){if(!hasKey){drawKeyOnFloor(sctx,now);sctx.fillStyle='#120b0d';for(const bx of [465,476,488,500,511])sctx.fillRect(bx,KEY_POS[1]-15,2,30);
-   sctx.fillRect(470,KEY_POS[1]-9,44,2);}return;}                     // the grate's bars still stand in front of the key
+ if(!hasKey&&!finished)drawKeyOnFloor(sctx,now);
+ if(!sealed())return;
  const p=Math.min(1,(now-sealedAt)/1300),e=ease(p);
  sctx.save();sctx.clip(vaultPath);sctx.fillStyle='#050304';sctx.fillRect(440,430,90,120);
  const g=sctx.createRadialGradient(484,516,2,484,516,44);g.addColorStop(0,`rgba(255,160,64,${.2*e})`);g.addColorStop(1,'rgba(255,150,60,0)');sctx.fillStyle=g;sctx.fillRect(440,430,90,120);
- if(!hasKey&&!exitWalk&&!finished)drawKeyOnFloor(sctx,now);
  if(p<1)sctx.drawImage(bg,440,430,90,120,440,430-e*96,90,120);
  sctx.restore();
 }
@@ -222,6 +228,7 @@ function frame(now){
  let hp=cen(...actor),lx=actor[0]+.5,ly=actor[1]+.5,walking=false,alpha=1;
  if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6,a=cen(...tween.from),b=cen(...tween.to);
   hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=tween.from[0]+.5+(tween.to[0]-tween.from[0])*u;ly=tween.from[1]+.5+(tween.to[1]-tween.from[1])*u;walking=true;
+  if(tween.through){const first=t<.5;hp=first?a:b;lx=(first?tween.from:tween.to)[0]+.5;ly=(first?tween.from:tween.to)[1]+.5;alpha=Math.abs(1-2*t);walking=false;}
   if(t>=1){tween=null;hp=cen(...actor);lx=actor[0]+.5;ly=actor[1]+.5;if(!pending.length)walking=false;arrived();}}
  if(exitWalk){const u=Math.min(1,(now-exitWalk.started)/exitWalk.duration);hp={x:exitWalk.from[0]+(exitWalk.to[0]-exitWalk.from[0])*u,y:exitWalk.from[1]+(exitWalk.to[1]-exitWalk.from[1])*u};walking=true;alpha=1-u;
   if(u>=1&&!finished){finished=true;ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}ending.classList.add('show');save();}}
