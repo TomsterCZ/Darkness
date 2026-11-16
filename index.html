@@ -804,7 +804,7 @@ function frame(now) {
     ctx.save();
     const light = Math.max(0, Math.min(1, litMix));
     ctx.globalAlpha = 1;
-    ctx.filter = `brightness(${Math.round(58 + 42 * light)}%) saturate(${Math.round(74 + 26 * light)}%)`;
+    ctx.filter = `brightness(${Math.round(82 + 18 * light)}%) saturate(${Math.round(74 + 26 * light)}%)`;
     if (mirror) { ctx.translate(Math.round(hero.x) * 2, 0); ctx.scale(-1, 1); }
     ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - H), W, H);
     ctx.restore();
