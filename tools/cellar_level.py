@@ -67,8 +67,9 @@ if '--board' in sys.argv:
             for d in((1,0),(-1,0),(0,1),(0,-1)):
                 q=(p[0]+d[0],p[1]+d[1]); nb.append(idx[q] if q in idx and (p,q) not in bl else -1)
             f.write(f"{p[0]} {p[1]} {' '.join(map(str,nb))}\n")
+outer=J.get('outer',{})      # walkway outside the parapet: explicit pixel positions, hero only (no crates)
 data=dict(OX=OX,OY=OY,HW=HW,HH=HH,
-          cells=[list(p) for p in order], blocked=blocked,
+          cells=[list(p) for p in order]+[[int(v) for v in k.split(',')] for k in outer], blocked=blocked, outer=outer,
           walls=[dict(n=n,box=[round(v,2) for v in w['box']],hull=[[round(x,1),round(y,1)] for x,y in w['hull']]) for n,w in walls.items()])
 src=open('cellar.html').read()
 block='/*BOARD-BEGIN*/const BOARD='+json.dumps(data,separators=(',',':'))+';/*BOARD-END*/'

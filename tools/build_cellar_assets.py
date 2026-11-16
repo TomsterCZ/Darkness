@@ -1,6 +1,5 @@
 """Builds the derived cellar assets from the painted scene:
-   - assets/scene/cellar_scene_gate.png : the scene with a gate opening cut into the parapet by the east arch
-   - assets/props/cellar_gate.png       : the iron wicket gate with its padlock (drawn over the opening)
+   - assets/scene/cellar_scene_gate.png : the scene with an opening cut into the parapet by the east arch
    - assets/props/cellar_key.png        : brass key (inventory + floating pickup)
    - assets/ui/restart.png, assets/ui/slot.png : pixel-art UI
 Run from the repo root:  python3 -I tools/build_cellar_assets.py
@@ -37,40 +36,7 @@ clone(endface,(400-871,307-190.9),gain=0.42,feather=0.4)
 # soft shadow on the threshold
 sh=Image.new('L',bg.size,0); ImageDraw.Draw(sh).polygon([dn(F1),dn(N1),(N1[0]-14,N1[1]+H+8),(F1[0]-16,F1[1]+H+6)],fill=110)
 out.paste(Image.new('RGB',bg.size,(8,6,8)),(0,0),sh.filter(ImageFilter.GaussianBlur(2.2)))
-# 3. taller gate posts: stack a copy of each neighbouring block one course higher
-post_r=[(871,188),(893,175),(916,188),(916,228),(893,241),(871,229)]
-post_l=[(816,226),(836,214),(856,226),(856,266),(837,277),(816,266)]
-snap=out.copy()
-for post in (post_l,post_r):
-    up=[(x,y-17) for x,y in post]
-    clone(up,(0,17),gain=1.0,feather=0.3,src=snap)
 out.save('assets/scene/cellar_scene_gate.png')
-
-# 4. iron wicket gate with padlock, a parallelogram following the parapet line
-gx0,gx1=846,880
-line=lambda x:196.4+(881-x)*0.6694            # parapet centre line at cap level
-g=Image.new('RGBA',bg.size,(0,0,0,0)); d=ImageDraw.Draw(g)
-top=lambda x:line(x)-9; bot=lambda x:line(x)+H+1
-IRON=(58,54,60,255); LIGHT=(126,116,110,255); DARK=(24,22,26,255)
-for x in range(gx0,gx1+1):
-    for (off,th) in ((0,2),(20,2),(40,2)):       # three rails
-        y=int(round(top(x)+off))
-        d.point((x,y),fill=LIGHT); d.point((x,y+1),fill=IRON)
-        if off==40: d.point((x,y+2),fill=DARK)
-for x in range(gx0+1,gx1,5):                     # bars with spear tips
-    y0=int(round(top(x)))-4; y1=int(round(bot(x)))
-    d.line([(x,y0),(x,y1)],fill=LIGHT); d.line([(x+1,y0+1),(x+1,y1)],fill=DARK)
-    d.point((x,y0-1),fill=LIGHT)
-# padlock
-px=863; py=int(round(top(px)+19))
-BR=(214,164,62,255); BR2=(150,104,34,255); BR3=(250,222,130,255)
-d.rectangle([px-4,py,px+4,py+8],fill=BR,outline=BR2)
-d.line([(px-3,py+1),(px+2,py+1)],fill=BR3)
-d.rectangle([px-1,py+3,px,py+5],fill=(40,28,14,255))
-d.arc([px-3,py-6,px+3,py+2],180,360,fill=(170,170,176,255))
-d.point((px-3,py-1),fill=(170,170,176,255)); d.point((px+3,py-1),fill=(170,170,176,255))
-box=(gx0-2,int(top(gx1))-8,gx1+3,int(bot(gx0))+4)
-g.crop(box).save('assets/props/cellar_gate.png'); print('gate box',box)
 
 # 5. brass key from the iron key icon
 k=np.asarray(Image.open('assets/props/iron_key.png').convert('RGBA')).astype(float)

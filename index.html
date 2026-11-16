@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kobka čaroděje</title>
+<title>Darkness</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
@@ -583,7 +583,7 @@ function inspect(id) {
     passageEntering = true;
     sayAtHero('Vejdeš do temného sklepení za knihovnou...');
     const epoch = animationEpoch;
-    setTimeout(() => { if (animationEpoch === epoch) window.location.href = 'cellar.html'; }, 950);
+    setTimeout(() => { if (animationEpoch === epoch) enterCellar(); }, 950);
     return;
   }
   if (id === 'shelf') {
@@ -695,6 +695,18 @@ function drinkPotion() {
   }, 3400);
 }
 
+// The cellar is a scene of this same page: it opens in a frame laid exactly over the room view,
+// so the address and the tab title never change.
+function enterCellar() {
+  if (document.querySelector('#cellarFrame')) return;
+  hover.classList.remove('show');
+  fadeAudio(bgm, bgm.volume, 0, 900); fadeAudio(bgmDark, bgmDark.volume, 0, 900);
+  const f = document.createElement('iframe');
+  f.id = 'cellarFrame'; f.src = 'cellar.html'; f.title = 'Tajné sklepení';
+  f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;z-index:50;opacity:0;transition:opacity .8s;background:#070507';
+  f.addEventListener('load', () => { f.style.opacity = '1'; try { f.contentWindow.focus(); } catch (e) {} setTimeout(() => { bgm.pause(); bgmDark.pause(); }, 950); });
+  document.querySelector('#screenWrap').appendChild(f);
+}
 // Turn the hero toward the object he is about to examine or use (the art faces right; it is mirrored to face left).
 function lookAt(h) { hero.lookX = (h.box[0] + h.box[2]) / 2; }
 function goTo(x, y, onArrive = null) {
