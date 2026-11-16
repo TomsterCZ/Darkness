@@ -10,7 +10,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 #restart{position:absolute;top:2%;right:1.4%;width:4.4%;aspect-ratio:1;padding:0;border:0;background:url(assets/ui/restart.png) center/100% 100% no-repeat;cursor:pointer;opacity:.82;transition:opacity .15s,transform .08s}
 #restart:hover,#restart:focus-visible{opacity:1;outline:none}#restart:active{transform:translateY(1px) scale(.97)}
 #solve{position:absolute;top:10.5%;right:1.4%;font:11px/1 monospace;padding:4px 6px;color:#e8c478;background:#1e1719;border:2px solid #4a3c38;cursor:pointer;opacity:.75}#solve:hover{opacity:1}
-#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;background:url(assets/ui/slot.png) center/100% 100% no-repeat;display:flex;align-items:center;justify-content:center;opacity:.9}
+#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;pointer-events:none}
 #inv img{height:66%;transform:rotate(38deg) scale(0);transition:transform .35s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 0 3px rgba(255,200,90,.55))}
 #inv.has img{transform:rotate(38deg) scale(1)}
 #hint{position:absolute;top:3.2%;left:14%;right:14%;text-align:center;color:#f1d8a8;font:clamp(13px,2.2vw,23px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
@@ -33,16 +33,16 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 // open floor, which steps a wall blocks, and a silhouette for every wall so that whatever
 // stands behind a wall is hidden by it. Nothing here is drawn as a second "map" over the art.
 // ---------------------------------------------------------------------------------------------
-/*BOARD-BEGIN*/const BOARD={"OX":564.1,"OY":80.2,"HW":37.6,"HH":19.2,"cells":[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[10,3],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,7],[8,7],[9,7],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[4,9],[5,9],[6,9],[7,9],[8,9],[9,9],[4,10],[5,10],[6,10],[7,10],[8,10],[9,10],[0,8],[0,9],[1,9],[1,10],[-1,9],[-2,9],[13,9],[14,9],[15,9]],"blocked":[[[3,2],[4,2]],[[3,3],[4,3]],[[4,4],[4,5]],[[5,4],[5,5]],[[6,4],[6,5]],[[7,4],[7,5]],[[8,4],[8,5]]],"outer":{"0,8":[864.9,253],"0,9":[902.5,272.2],"1,9":[864.9,291.4],"1,10":[902.5,310.6],"-1,9":[938,255],"-2,9":[950,218],"13,9":[486,531],"14,9":[452,541],"15,9":[418,549]},"heroOnly":["-2,9","13,9","14,9","15,9"],"place":{"10,3":[10.72,4.02],"10,4":[10.72,4.86],"10,5":[10.66,5.68],"10,6":[10.58,6.45]},"walls":[{"n":"WM","box":[4.2,9.1,4.75,5.25],"hull":[[400.6,307.3],[584.6,213.3],[603.4,222.7],[603.4,261.7],[419.4,355.7],[400.6,346.3]]},{"n":"W3","box":[-0.32,3.64,4.12,4.68],"hull":[[584.6,191.3],[730.6,114.3],[749.4,123.7],[749.4,162.7],[603.4,239.7],[584.6,230.3]]},{"n":"W2","box":[3.75,4.26,2.44,4.53],"hull":[[495.6,169.7],[514.4,160.3],[593.4,200.3],[593.4,239.3],[574.6,248.7],[495.6,208.7]]},{"n":"W1","box":[1.65,7.53,-0.54,0.2],"hull":[[260.6,175.3],[490.6,67.3],[509.4,76.7],[509.4,115.7],[279.4,223.7],[260.6,214.3]]},{"n":"W4","box":[-1.01,-0.37,4.72,8.31],"hull":[[755.6,124.7],[774.4,115.3],[914.4,181.3],[914.4,220.3],[895.6,229.7],[755.6,163.7]]},{"n":"W6","box":[3.2,3.75,8.57,11.43],"hull":[[747.6,276.7],[766.4,267.3],[871.4,323.3],[871.4,362.3],[852.6,371.7],[747.6,315.7]]},{"n":"W7a","box":[3.58,6.66,11.11,11.7],"hull":[[732,382.5],[847,323.5],[869,334.5],[869,373.5],[754,432.5],[732,421.5]]},{"n":"W7b","box":[6.65,10.28,11.12,12.24],"hull":[[616,462.5],[732,382.5],[754,393.5],[754,432.5],[638,512.5],[616,501.5]]},{"n":"W8b","box":[9.76,10.75,7.08,12.07],"hull":[[426,383.5],[448,372.5],[651,460.5],[651,499.5],[629,510.5],[426,422.5]]},{"n":"W8j","box":[10.46,11.5,6.83,7.44],"hull":[[392.6,395.3],[427.6,373.3],[446.4,382.7],[446.4,421.7],[411.4,443.7],[392.6,434.3]]},{"n":"W8a","box":[11.18,12.57,3.36,7.24],"hull":[[218,347],[246,333],[416,395],[416,434],[388,448],[218,386]]},{"n":"W9b","box":[10.17,12.07,2.9,3.48],"hull":[[222.6,330.3],[290.6,292.3],[309.4,301.7],[309.4,340.7],[241.4,378.7],[222.6,369.3]]},{"n":"W9a","box":[9.91,10.47,0.61,3.36],"hull":[[195.6,252.7],[214.4,243.3],[315.4,297.3],[315.4,336.3],[296.6,345.7],[195.6,291.7]]},{"n":"W5a","box":[-0.73,-0.16,7.91,8.53],"hull":[[871,190.9],[889,179.0],[909,190.0],[909,229.0],[891,240.9],[871,229.9]]},{"n":"W5b","box":[0.92,3.65,8.13,9.05],"hull":[[747,274.0],[835,215.0],[855,226.0],[855,265.0],[767,324.0],[747,313.0]]}]};/*BOARD-END*/
+/*BOARD-BEGIN*/const BOARD={"OX":564.1,"OY":80.2,"HW":37.6,"HH":19.2,"cells":[[-1,0,581.0,90.8,0.05,0.5,0],[0,0,546.2,108.5,0.98,0.5,0],[1,0,511.5,126.3,1.9,0.5,0],[2,0,476.7,144.0,2.83,0.5,0],[3,0,441.9,161.8,3.75,0.5,0],[4,0,406.8,182.3,4.75,0.57,0],[5,0,370.9,199.2,5.67,0.53,0],[6,0,334.9,216.0,6.58,0.49,0],[7,0,298.9,232.9,7.5,0.45,0],[8,0,262.9,249.7,8.42,0.41,0],[-1,1,621.3,100.9,-0.22,1.3,0],[0,1,583.9,120.0,0.77,1.3,0],[1,1,546.6,139.0,1.77,1.3,0],[2,1,509.3,158.1,2.76,1.3,0],[3,1,472.0,177.2,3.75,1.3,0],[4,1,440.1,199.3,4.75,1.45,0],[5,1,404.6,216.4,5.67,1.43,0],[6,1,369.1,233.5,6.58,1.4,0],[7,1,333.6,250.6,7.5,1.37,0],[8,1,298.2,267.7,8.42,1.35,0],[-1,2,671.6,113.6,-0.56,2.3,0],[0,2,636.8,131.4,0.37,2.3,0],[1,2,602.0,149.2,1.29,2.3,0],[2,2,567.1,167.0,2.22,2.3,0],[4,2,473.3,216.2,4.75,2.34,0],[5,2,438.3,233.6,5.67,2.32,0],[6,2,403.4,251.0,6.58,2.31,0],[7,2,368.4,268.3,7.5,2.3,0],[8,2,333.4,285.7,8.42,2.28,0],[4,3,506.6,233.2,4.75,3.22,0],[5,3,472.1,250.8,5.67,3.22,0],[6,3,437.6,268.5,6.58,3.22,0],[7,3,403.1,286.1,7.5,3.22,0],[8,3,368.6,303.7,8.42,3.22,0],[9,3,338.5,329.8,9.5,3.5,0],[10,3,302.8,350.0,10.5,3.55,0],[0,4,752.9,179.7,0.08,5.1,0],[1,4,710.0,201.5,1.22,5.1,0],[2,4,667.1,223.4,2.36,5.1,0],[3,4,624.3,245.3,3.5,5.1,0],[9,4,376.1,349.0,9.5,4.5,0],[10,4,340.4,363.4,10.35,4.4,0],[0,5,781.6,194.3,0.08,5.86,0],[1,5,740.7,217.2,1.22,5.92,0],[2,5,699.8,240.1,2.36,5.97,0],[3,5,658.9,263.0,3.5,6.02,0],[4,5,619.7,272.6,4.27,5.75,0],[5,5,578.7,293.6,5.36,5.75,0],[6,5,537.6,314.5,6.46,5.75,0],[7,5,496.5,335.5,7.55,5.75,0],[8,5,455.4,356.5,8.64,5.75,0],[9,5,413.7,372.0,9.6,5.6,0],[16,5,223,503,20.0,20.0,1],[0,6,810.3,209.0,0.08,6.63,0],[1,6,771.4,232.9,1.22,6.73,0],[2,6,732.4,256.8,2.36,6.84,0],[3,6,693.5,280.7,3.5,6.94,0],[4,6,655.8,291.0,4.27,6.71,0],[5,6,614.7,311.9,5.36,6.71,0],[6,6,573.6,332.9,6.46,6.71,0],[7,6,533.8,354.5,7.55,6.74,0],[8,6,494.2,376.3,8.64,6.78,0],[15,6,298,506,20.0,20.0,1],[16,6,260,522,20.0,20.0,1],[17,6,223,538,20.0,20.0,1],[0,7,864.9,253,0.5,8.5,0],[4,7,691.8,309.4,4.27,7.67,0],[5,7,651.1,330.1,5.35,7.67,0],[6,7,610.5,350.8,6.43,7.67,0],[7,7,572.4,372.7,7.51,7.73,0],[8,7,535.1,394.9,8.58,7.81,0],[15,7,336,525,20.0,20.0,1],[16,7,298,541,20.0,20.0,1],[-2,8,950,218,-1.54,8.72,1],[-1,8,938,255,-0.42,9.52,0],[0,8,895,286,0.96,9.76,0],[4,8,727.8,327.7,4.27,8.62,0],[5,8,687.9,348.1,5.33,8.62,0],[6,8,648.0,368.5,6.39,8.62,0],[7,8,611.6,390.4,7.45,8.71,0],[8,8,576.5,412.8,8.5,8.83,0],[14,8,411,528,20.0,20.0,1],[15,8,373,544,20.0,20.0,1],[0,9,896,326,1.99,10.81,0],[4,9,763.8,346.1,4.27,9.58,0],[5,9,724.6,366.1,5.31,9.58,0],[6,9,685.5,386.1,6.35,9.58,0],[7,9,650.6,408.0,7.39,9.69,0],[8,9,617.8,430.7,8.41,9.84,0],[13,9,486,531,20.0,20.0,1],[14,9,448,547,20.0,20.0,1],[0,10,893,366,20.0,20.0,0],[13,10,523,550,20.0,20.0,1],[0,11,886,404,20.0,20.0,0],[0,12,860,428,20.0,20.0,0],[0,13,823,447,20.0,20.0,0],[0,14,786,466,20.0,20.0,0],[0,15,748,485,20.0,20.0,0],[0,16,711,504,20.0,20.0,0],[0,17,676,522,20.0,20.0,0]],"blocked":[],"walls":[{"n":"WM","box":[4.2,9.1,4.75,5.25],"hull":[[400.6,307.3],[584.6,213.3],[603.4,222.7],[603.4,261.7],[419.4,355.7],[400.6,346.3]]},{"n":"W3","box":[-0.32,3.64,4.12,4.68],"hull":[[584.6,191.3],[730.6,114.3],[749.4,123.7],[749.4,162.7],[603.4,239.7],[584.6,230.3]]},{"n":"W2","box":[3.75,4.26,2.44,4.53],"hull":[[495.6,169.7],[514.4,160.3],[593.4,200.3],[593.4,239.3],[574.6,248.7],[495.6,208.7]]},{"n":"W1","box":[1.65,7.53,-0.54,0.2],"hull":[[260.6,175.3],[490.6,67.3],[509.4,76.7],[509.4,115.7],[279.4,223.7],[260.6,214.3]]},{"n":"W4","box":[-1.01,-0.37,4.72,8.31],"hull":[[755.6,124.7],[774.4,115.3],[914.4,181.3],[914.4,220.3],[895.6,229.7],[755.6,163.7]]},{"n":"W6","box":[3.2,3.75,8.57,11.43],"hull":[[747.6,276.7],[766.4,267.3],[871.4,323.3],[871.4,362.3],[852.6,371.7],[747.6,315.7]]},{"n":"W7a","box":[3.58,6.66,11.11,11.7],"hull":[[732,382.5],[847,323.5],[869,334.5],[869,373.5],[754,432.5],[732,421.5]]},{"n":"W7b","box":[6.65,10.28,11.12,12.24],"hull":[[616,462.5],[732,382.5],[754,393.5],[754,432.5],[638,512.5],[616,501.5]]},{"n":"W8b","box":[9.76,10.75,7.08,12.07],"hull":[[426,383.5],[448,372.5],[651,460.5],[651,499.5],[629,510.5],[426,422.5]]},{"n":"W8j","box":[10.46,11.5,6.83,7.44],"hull":[[392.6,395.3],[427.6,373.3],[446.4,382.7],[446.4,421.7],[411.4,443.7],[392.6,434.3]]},{"n":"W8a","box":[11.18,12.57,3.36,7.24],"hull":[[218,347],[246,333],[416,395],[416,434],[388,448],[218,386]]},{"n":"W9b","box":[10.17,12.07,2.9,3.48],"hull":[[222.6,330.3],[290.6,292.3],[309.4,301.7],[309.4,340.7],[241.4,378.7],[222.6,369.3]]},{"n":"W9a","box":[9.91,10.47,0.61,3.36],"hull":[[195.6,252.7],[214.4,243.3],[315.4,297.3],[315.4,336.3],[296.6,345.7],[195.6,291.7]]},{"n":"W5a","box":[-0.73,-0.16,7.91,8.53],"hull":[[871,190.9],[889,179.0],[909,190.0],[909,229.0],[891,240.9],[871,229.9]]},{"n":"W5b","box":[0.92,3.65,8.13,9.05],"hull":[[747,274.0],[835,215.0],[855,226.0],[855,265.0],[767,324.0],[747,313.0]]}]};/*BOARD-END*/
 const {OX,OY,HW,HH}=BOARD;
 // Level: solver-verified (tools/sokoban_gen.cpp). Crates are pushed, never pulled.
 const START=[8,0];
-const CRATES_START=[[4,5],[2,6],[3,6],[3,7]];
-const GOALS=[[1,6],[2,6],[3,6],[4,6]];
-const GATE_TOP=[9,7];          // platform cell behind the parapet, straight above the barred gate
+const CRATES_START=[[3,5],[5,5],[4,6],[5,6]];
+const GOALS=[[0,4],[1,4],[0,5],[1,5]];
+const GATE_TOP=[8,6];          // platform cell straight above the barred gate
 const GATE_LOW=[13,9];         // standing in the gate mouth on the low ground
-const KEY_CELL=[15,9];         // the key lies on the low ground south-west of the gate
-const PORTAL=[-2,9];           // threshold of the east arch
+const KEY_CELL=[16,6];         // the key lies on the low ground south-west of the gate
+const PORTAL=[-2,8];           // threshold of the east arch
 const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,458],[516,472],[516,536]];
 
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
@@ -55,21 +55,16 @@ const ready=i=>i.complete&&i.naturalWidth>0;
 
 // ---- geometry -------------------------------------------------------------------------------
 const k=(x,y)=>x+','+y;
-const P=(c,r)=>({x:OX+(r-c)*HW,y:OY+(c+r)*HH});           // lattice point -> pixel (floor level)
-const OUTER=BOARD.outer||{},PLACE=BOARD.place||{},HERO_ONLY=new Set(BOARD.heroOnly||[]);
-// Where a cell's centre sits on screen. The painted walls are not perfectly parallel to the paving
-// lattice toward the front of the platform, so the front chamber is gently stretched to hug them;
-// the walkway outside the parapet uses positions read straight off the painting.
-function cen(x,y){const o=OUTER[x+','+y];if(o)return {x:o[0],y:o[1]};const pl=PLACE[x+','+y];if(pl)return P(pl[0],pl[1]);let c=x+.5,r=y+.5;
- if(x<=3&&y>=5&&y<=7)c=3.5-(3.5-c)*1.133;                  // the east chamber reaches right up to its back parapet
- if(x>=4&&x<=9&&y>=5&&y<=10){const c0=c;if(r>7.08)c=4+(c-4)*(1-.0133*(r-7.08));if(c0>6.66)r=5+(r-5)*(1+.027*(c0-6.66));}
- return P(c,r);}
-const KEY_POS=[OUTER[KEY_CELL.join(',')][0],OUTER[KEY_CELL.join(',')][1]+2];
-const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
-const floor=new Set(BOARD.cells.map(p=>k(...p)));
+// Every cell carries its own spot in the painting (x,y) and its place on the paving lattice (lc,lr),
+// which decides what stands in front of what. Cells exist only where the floor is visibly open.
+const POS=new Map(BOARD.cells.map(([c,r,x,y,lc,lr,ho])=>[k(c,r),{x,y,lc,lr,ho:!!ho}]));
+const cen=(x,y)=>POS.get(k(x,y));
+const floor=new Set(POS.keys());
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
 const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
+const heroOnly=(x,y)=>!!POS.get(k(x,y))?.ho;
+const KEY_POS=[cen(...KEY_CELL).x,cen(...KEY_CELL).y+2];
 const isFloor=(x,y)=>floor.has(k(x,y));
 const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
 if(![START,GATE_TOP,GATE_LOW,KEY_CELL,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
@@ -82,7 +77,7 @@ function stepTo(x,y,dx,dy){
  return null;}
 
 // ---- state ----------------------------------------------------------------------------------
-const SAVE='darkness_cellar_v13';
+const SAVE='darkness_cellar_v14';
 const hint=document.querySelector('#hint'),ending=document.querySelector('#win'),invEl=document.querySelector('#inv');
 const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
 let actor,crates,history,pending,tween,facing,moves,pushes;
@@ -107,7 +102,7 @@ function restore(){try{
 // ---- sound ----------------------------------------------------------------------------------
 function wake(){hasInteracted=true;
  try{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();audio.resume?.();}catch(e){}
- if(!muted&&!finished&&ambient.paused)ambient.play().catch(()=>{});}
+ const tune=sealedAt!==0?victory:ambient;if(!muted&&tune.paused)tune.play().catch(()=>{});}
 function tone(f,dur,v=.04,type='sine',when=0,slide=0){if(!audio||muted)return;const t=audio.currentTime+when,o=audio.createOscillator(),g=audio.createGain();
  o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur+.02);}
@@ -128,13 +123,13 @@ const sfx={
 
 // ---- rules ----------------------------------------------------------------------------------
 function checkSeals(){if(sealed()||!GOALS.every(([x,y])=>crateAt(x,y)!==-1))return;
- sealedAt=performance.now();sfx.vault();
+ sealedAt=performance.now();sfx.vault();ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}
  message('Všechny pečetě zapadly. Dole pod plošinou se s rachotem zvedá mříž.',5200);}
 function makeMove(dx,dy){
  if(finished||tween||exitWalk)return false;
  const to=stepTo(actor[0],actor[1],dx,dy);if(!to)return false;
  const [nx,ny]=to,through=Math.abs(nx-actor[0])+Math.abs(ny-actor[1])!==1,bi=crateAt(nx,ny);let boxMove=null;
- if(bi!==-1){if(through||!canStep(nx,ny,dx,dy)||HERO_ONLY.has(k(nx+dx,ny+dy))||crateAt(nx+dx,ny+dy)!==-1)return false;boxMove={i:bi,from:[nx,ny],to:[nx+dx,ny+dy]};}
+ if(bi!==-1){if(through||!canStep(nx,ny,dx,dy)||heroOnly(nx+dx,ny+dy)||crateAt(nx+dx,ny+dy)!==-1)return false;boxMove={i:bi,from:[nx,ny],to:[nx+dx,ny+dy]};}
  history.push({actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes});if(history.length>900)history.shift();
  const prev=[...actor];actor=[nx,ny];moves++;
  if(boxMove){crates[bi]=boxMove.to;pushes++;sfx.scrape();if(GOALS.some(g=>g[0]===boxMove.to[0]&&g[1]===boxMove.to[1]))setTimeout(sfx.seal,170);}else sfx.step();
@@ -153,7 +148,7 @@ function arrived(){                                           // called when a s
    const a=cen(...actor);setTimeout(()=>{exitWalk={from:[a.x,a.y],to:[958,184],started:performance.now(),duration:900};facing='walk_right';},650);}}
 }
 function undo(){if(!history.length||finished||exitWalk)return;pending=[];tween=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;tone(180,.12,.035,'triangle');save();}
-function restart(){wake();reset();victory.pause();victory.currentTime=0;if(!muted){ambient.play().catch(()=>{});}tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
+function restart(){reset();victory.pause();victory.currentTime=0;wake();tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
 function walkTo(to){
  if(!isFloor(...to)||crateAt(...to)!==-1)return null;
  const src=k(...actor),dst=k(...to),q=[[...actor]],via=new Map([[src,null]]);
@@ -161,11 +156,21 @@ function walkTo(to){
   for(const [dx,dy] of DELTAS){const t=stepTo(x,y,dx,dy);if(!t)continue;const z=k(...t);if(crateAt(...t)!==-1||via.has(z))continue;via.set(z,{from:k(x,y),delta:[dx,dy]});q.push(t);}}
  if(!via.has(dst))return null;const a=[];let p=dst;while(p!==src){const f=via.get(p);a.unshift(f.delta);p=f.from;}return a;
 }
-function queue(dx,dy){if(finished)return;wake();
- if(tween||pending.length){if(pending.length<4)pending.push([dx,dy]);}else if(!makeMove(dx,dy))sfx.bump();}
+// A key names one of the four paving directions. Where the walkway outside bends away from the paving
+// lattice, the key that points along it on screen works as well.
+const KEYDIR=d=>DELTAS.find(e=>(e[1]-e[0])*HW===d[0]&&(e[0]+e[1])*HH===d[1]);
+function keyStep(vx,vy,from){const nominal=KEYDIR([vx,vy]);if(nominal&&stepTo(from[0],from[1],nominal[0],nominal[1]))return nominal;
+ let best=null,bc=.85;const p=cen(...from),vl=Math.hypot(vx,vy);
+ for(const d of DELTAS){const t=stepTo(from[0],from[1],d[0],d[1]);if(!t||Math.abs(t[0]-from[0])+Math.abs(t[1]-from[1])!==1)continue;const q=cen(...t),ex=q.x-p.x,ey=q.y-p.y;
+  const c=(ex*vx+ey*vy)/(Math.hypot(ex,ey)*vl);if(c>bc){bc=c;best=d;}}
+ return best;}
+let keyAt=null;
+function queue(vx,vy){if(finished||exitWalk)return;wake();
+ if(!tween&&!pending.length){keyAt=[...actor];const d=keyStep(vx,vy,actor);if(!d||!makeMove(...d))sfx.bump();else keyAt=stepTo(keyAt[0],keyAt[1],d[0],d[1]);return;}
+ if(pending.length<4&&keyAt){const d=keyStep(vx,vy,keyAt);if(d){pending.push(d);keyAt=stepTo(keyAt[0],keyAt[1],d[0],d[1]);}}}
 function go(to,why){if(at(actor,to)){arrived();return;}const route=walkTo(to);if(route)pending=route;else message(why);}
 function cellAt(sx,sy){let best=null,bd=1.15;for(const key of floor){const [x,y]=key.split(',').map(Number),p=cen(x,y),d=Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH;if(d<bd){bd=d;best=[x,y];}}return best;}
-function onClick(ev){if(finished||exitWalk)return;wake();
+function onClick(ev){if(finished||exitWalk)return;wake();keyAt=null;
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
  if(sx>=905&&sx<=1005&&sy>=70&&sy<=232){go(PORTAL,'K portálu se teď nedostanu.');return;}       // the east arch
  const low=cellAt(sx,sy),toLow=ctx.isPointInPath(vaultPath,sx,sy)?GATE_LOW:(low&&low[0]>=13?low:null);            // the barred gate and the low ground beyond it
@@ -180,7 +185,7 @@ function onClick(ev){if(finished||exitWalk)return;wake();
 }
 canvas.addEventListener('pointerdown',onClick);
 document.addEventListener('keydown',ev=>{
- const keys={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowUp:[-1,0],ArrowDown:[1,0],d:[0,1],a:[0,-1],w:[-1,0],s:[1,0]};const key=ev.key.length===1?ev.key.toLowerCase():ev.key;
+ const keys={ArrowRight:[HW,HH],ArrowLeft:[-HW,-HH],ArrowUp:[HW,-HH],ArrowDown:[-HW,HH],d:[HW,HH],a:[-HW,-HH],w:[HW,-HH],s:[-HW,HH]};const key=ev.key.length===1?ev.key.toLowerCase():ev.key;
  if(keys[key]){ev.preventDefault();queue(...keys[key]);}
  else if(key==='z'||key==='Backspace'){ev.preventDefault();undo();}
  else if(key==='r'){ev.preventDefault();restart();}
@@ -189,7 +194,7 @@ document.addEventListener('keydown',ev=>{
 document.querySelector('#restart').onclick=restart;
 // TEMPORARY testing aid: drops every crate onto a seal. Remove this handler and the #solve button when done.
 document.querySelector('#solve').onclick=()=>{if(finished||exitWalk)return;wake();pending=[];tween=null;crates=GOALS.map(p=>[...p]);
- if(crateAt(...actor)!==-1)actor=[5,7];checkSeals();save();};
+ if(crateAt(...actor)!==-1)actor=[...START];checkSeals();save();};
 
 // ---- drawing --------------------------------------------------------------------------------
 const vaultPath=new Path2D();VAULT.forEach((p,i)=>i?vaultPath.lineTo(p[0],p[1]):vaultPath.moveTo(p[0],p[1]));vaultPath.closePath();
@@ -221,26 +226,26 @@ function drawSeal(gx,gy,now){const p=cen(gx,gy),on=crateAt(gx,gy)!==-1,pulse=.5+
  ctx.globalAlpha*=.8;ctx.lineWidth=1;diamond(p.x,p.y,21,10.7);ctx.stroke();
  ctx.fillStyle=on?'#ffd27a':'#b98a48';for(const [ax,ay] of [[0,-6],[11,0],[0,6],[-11,0],[0,0]])ctx.fillRect(Math.round(p.x+ax)-1,Math.round(p.y+ay)-1,2,2);
  if(on){ctx.globalAlpha=.16;ctx.fillStyle='#ffc060';diamond(p.x,p.y,29,14.8);ctx.fill();}
- ctx.restore();occlude(gx+.5,gy+.5,p.x-31,p.y-17,62,34);
+ ctx.restore();occlude(p.lc,p.lr,p.x-31,p.y-17,62,34);
 }
 function frame(now){
  // --- advance animations
- let hp=cen(...actor),lx=actor[0]+.5,ly=actor[1]+.5,walking=false,alpha=1;
+ let hp=cen(...actor),lx=hp.lc,ly=hp.lr,walking=false,alpha=1;
  if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6,a=cen(...tween.from),b=cen(...tween.to);
-  hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=tween.from[0]+.5+(tween.to[0]-tween.from[0])*u;ly=tween.from[1]+.5+(tween.to[1]-tween.from[1])*u;walking=true;
-  if(tween.through){const first=t<.5;hp=first?a:b;lx=(first?tween.from:tween.to)[0]+.5;ly=(first?tween.from:tween.to)[1]+.5;alpha=Math.abs(1-2*t);walking=false;}
-  if(t>=1){tween=null;hp=cen(...actor);lx=actor[0]+.5;ly=actor[1]+.5;if(!pending.length)walking=false;arrived();}}
+  hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=a.lc+(b.lc-a.lc)*u;ly=a.lr+(b.lr-a.lr)*u;walking=true;
+  if(tween.through){const first=t<.5;hp=first?a:b;lx=hp.lc;ly=hp.lr;alpha=Math.abs(1-2*t);walking=false;}
+  if(t>=1){tween=null;hp=cen(...actor);lx=hp.lc;ly=hp.lr;if(!pending.length)walking=false;arrived();}}
  if(exitWalk){const u=Math.min(1,(now-exitWalk.started)/exitWalk.duration);hp={x:exitWalk.from[0]+(exitWalk.to[0]-exitWalk.from[0])*u,y:exitWalk.from[1]+(exitWalk.to[1]-exitWalk.from[1])*u};walking=true;alpha=1-u;
-  if(u>=1&&!finished){finished=true;ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}ending.classList.add('show');save();}}
+  if(u>=1&&!finished){finished=true;ending.classList.add('show');save();}}
  // --- scene
  paintScene(now);ctx.drawImage(scene,0,0);
  for(const [gx,gy] of GOALS)drawSeal(gx,gy,now);
  // --- everything that stands on the floor, back to front
  const objs=[];
- for(let i=0;i<crates.length;i++){let x=crates[i][0],y=crates[i][1],p=cen(x,y);
-  if(tween?.boxMove?.i===i){const a=tween.boxMove,t=Math.min(1,(now-tween.started)/tween.duration),pa=cen(...a.from),pb=cen(...a.to);p={x:pa.x+(pb.x-pa.x)*t,y:pa.y+(pb.y-pa.y)*t};x=a.from[0]+(a.to[0]-a.from[0])*t;y=a.from[1]+(a.to[1]-a.from[1])*t;}
-  objs.push({type:'crate',p,lx:x+.5,ly:y+.5,depth:x+y});}
- if(!finished)objs.push({type:'hero',p:hp,lx,ly,depth:lx+ly-1+.1});
+ for(let i=0;i<crates.length;i++){let p=cen(...crates[i]),cl=p.lc,cr=p.lr;
+  if(tween?.boxMove?.i===i){const a=tween.boxMove,t=Math.min(1,(now-tween.started)/tween.duration),pa=cen(...a.from),pb=cen(...a.to);p={x:pa.x+(pb.x-pa.x)*t,y:pa.y+(pb.y-pa.y)*t};cl=pa.lc+(pb.lc-pa.lc)*t;cr=pa.lr+(pb.lr-pa.lr)*t;}
+  objs.push({type:'crate',p,lx:cl,ly:cr,depth:cl+cr});}
+ if(!finished)objs.push({type:'hero',p:hp,lx,ly,depth:lx+ly+.05});
  objs.sort((a,b)=>a.depth-b.depth);
  for(const o of objs){const p=o.p;
   if(o.type==='crate'){
