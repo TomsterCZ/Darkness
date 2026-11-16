@@ -51,15 +51,19 @@ const ready=i=>i.complete&&i.naturalWidth>0;
 const k=(x,y)=>x+','+y;
 const P=(c,r)=>({x:OX+(r-c)*HW,y:OY+(c+r)*HH});           // lattice point -> pixel (floor level)
 const OUTER=BOARD.outer||{},PLACE=BOARD.place||{},HERO_ONLY=new Set(BOARD.heroOnly||[]);
-// Where a cell's centre sits on screen. The painted walls are not perfectly parallel to the paving
-// lattice toward the front of the platform, so the front chamber is gently stretched to hug them;
-// the walkway outside the parapet uses positions read straight off the painting.
-function cen(x,y){const o=OUTER[x+','+y];if(o)return {x:o[0],y:o[1]};const pl=PLACE[x+','+y];if(pl)return P(pl[0],pl[1]);let c=x+.5,r=y+.5;
- if(x<=3&&y>=5&&y<=7)c=3.5-(3.5-c)*1.133;                  // the east chamber reaches right up to its back parapet
- if(x>=4&&x<=9&&y>=5&&y<=10){const c0=c;if(r>7.08)c=4+(c-4)*(1-.0133*(r-7.08));if(c0>6.66)r=5+(r-5)*(1+.027*(c0-6.66));}
- return P(c,r);}
+// One fixed isometric grid for every tile. The former custom offsets
+// and nonlinear warping caused steps of different lengths in adjacent
+// cells, notably along the southern wall. Only the stairway on the LOW
+// floor uses separate hand-aligned positions.
+function cen(x,y){
+ const o=OUTER[x+','+y];
+ if(o && x>=13)return {x:o[0],y:o[1]};
+ return P(x+.5,y+.5);
+}
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
-const floor=new Set(BOARD.cells.map(p=>k(...p)));
+// Doorway beyond the northern platform is a scripted threshold, not an
+// extra walkable cell. All regular moves remain on lattice centres.
+const floor=new Set(BOARD.cells.filter(p=>!at(p,PORTAL)).map(p=>k(...p)));
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
 const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
@@ -69,14 +73,19 @@ if(![START,GATE_TOP,GATE_LOW,NORTH_STEP,PORTAL,...CRATES_START,...GOALS].every(p
 const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
 // Where a step in direction (dx,dy) leads, or null. Once the gate is raised, stepping "into" the parapet
 // above it takes the hero down through the gate to the low ground, and back again.
-function stepTo(x,y,dx,dy){
- // The north portal occupies the end of the corridor; its closed door is
- // solid, not a walkable floor tile until the lock has disengaged.
- if(x+dx===PORTAL[0]&&y+dy===PORTAL[1]&&(!northDoorAt||performance.now()-northDoorAt<920))return null;
+function stepTo(x,y,dx,dy) {
+ // All ordinary movement is EXACTLY one cardinal lattice step.
+ if(Math.abs(dx)+Math.abs(dy)!==1)return null;
  if(canStep(x,y,dx,dy))return [x+dx,y+dy];
- // The steep southern threshold is a supported connection only AFTER the grate lifts.
- if(sealedAt!==0&&dy===0){if(dx===1&&x===GATE_TOP[0]&&y===GATE_TOP[1])return [...GATE_LOW];if(dx===-1&&x===GATE_LOW[0]&&y===GATE_LOW[1])return [...GATE_TOP];}
- return null;}
+ // Only the actual southern stairs connect different elevations. Never
+ // walk through the portcullis while it is still visibly lifting.
+ const grateReady=sealedAt!==0 && performance.now()-sealedAt>=1700;
+ if(grateReady && dy===0) {
+  if(dx===1 && x===GATE_TOP[0] && y===GATE_TOP[1])return [...GATE_LOW];
+  if(dx===-1 && x===GATE_LOW[0] && y===GATE_LOW[1])return [...GATE_TOP];
+ }
+ return null;
+}
 
 // ---- state ----------------------------------------------------------------------------------
 const SAVE='darkness_cellar_v13';
@@ -150,9 +159,15 @@ function unlockNorthDoor(){
  northDoorAt=performance.now()||1;sfx.unlock();
  message('Starý klíč zapadl do zámku severní brány. Těžké dveře se otevírají…',3700);
  const epoch=sceneEpoch;
- setTimeout(()=>{if(epoch!==sceneEpoch||finished||exitWalk)return;
-   if(at(actor,NORTH_STEP)){pending=[[-1,0]];}
- },1060);
+ setTimeout(()=>{
+  if(epoch!==sceneEpoch||finished||exitWalk||!at(actor,NORTH_STEP))return;
+  // Crossing an actual doorway isn't a second grid cell. Animate straight
+  // into the arched opening; never teleport the actor between grid tiles.
+  portalExitStarted=true;hasKey=false;pending=[];
+  const a=cen(...actor);
+  exitWalk={from:[a.x,a.y],to:[950,174],started:performance.now(),duration:1200};
+  facing='walk_right';save();
+ },1000);
 }
 function arrived(){                                           // called when a step has finished
  // The southern gate gives up its mechanism key as the character walks
@@ -160,15 +175,6 @@ function arrived(){                                           // called when a s
  if(sealed()&&at(actor,GATE_LOW)&&!hasKey&&!northDoorAt){
    hasKey=true;sfx.key();save();
    message('V uvolněném mechanismu nahmatáš starý klíč. Schováš ho pod plášť.',4500);
- }
- if(at(actor,PORTAL)&&northDoorAt&&!portalExitStarted){
-   portalExitStarted=true;hasKey=false;
-   const a=cen(...actor),epoch=sceneEpoch;
-   setTimeout(()=>{if(epoch!==sceneEpoch||finished)return;
-     exitWalk={from:[a.x,a.y],to:[958,184],started:performance.now(),duration:900};
-     facing='walk_right';
-   },250);
-   return;
  }
  if(pending.length)return;
  if(at(actor,NORTH_STEP)){
@@ -188,11 +194,11 @@ function walkTo(to){
 function queue(dx,dy){if(finished)return;wake();
  if(tween||pending.length){if(pending.length<4)pending.push([dx,dy]);}else if(!makeMove(dx,dy))sfx.bump();}
 function go(to,why){if(at(actor,to)){arrived();return;}const route=walkTo(to);if(route)pending=route;else message(why);}
-function cellAt(sx,sy){let best=null,bd=1.15;for(const key of floor){const [x,y]=key.split(',').map(Number),p=cen(x,y),d=Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH;if(d<bd){bd=d;best=[x,y];}}return best;}
+function cellAt(sx,sy){let best=null,bd=0.995;for(const key of floor){const [x,y]=key.split(',').map(Number),p=cen(x,y),d=Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH;if(d<bd){bd=d;best=[x,y];}}return best;}
 function onClick(ev){if(finished||exitWalk)return;wake();
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
  if(sx>=905&&sx<=1005&&sy>=70&&sy<=232){
-   if(northDoorAt)go(PORTAL,'Severní brána se ještě otevírá.');
+   if(northDoorAt)go(NORTH_STEP,'Severní brána se ještě otevírá.');
    else {go(NORTH_STEP,'K severní bráně se teď nedostanu.');
      if(!hasKey)message('Severní brána je zamčená. K otevření bude potřeba klíč.',4000);}
    return;
@@ -205,6 +211,9 @@ function onClick(ev){if(finished||exitWalk)return;wake();
   if(Math.abs(dx)+Math.abs(dy)===1&&canStep(actor[0],actor[1],dx,dy)){pending=[[dx,dy]];return;}   // standing next to it: push it away
   let route=null;for(const [ex,ey] of DELTAS){if(!canStep(b[0]+ex,b[1]+ey,-ex,-ey))continue;const r2=walkTo([b[0]+ex,b[1]+ey]);if(r2&&(!route||r2.length<route.length))route=r2;}
   if(route)pending=route;else message('K té bedně se odsud nedostanu.');return;}
+ // A raised wall is not a floor target. Do not snap mouse clicks through
+ // its visible stonework into a hidden cell on the other side.
+ if(WALLS.some(w=>sx>=w.x0&&sx<=w.x1&&sy>=w.y0&&sy<=w.y1&&ctx.isPointInPath(w.path,sx,sy)))return;
  const c=cellAt(sx,sy);if(!c)return;const route=walkTo(c);if(route)pending=route;
 }
 canvas.addEventListener('pointerdown',onClick);
@@ -309,15 +318,25 @@ function frame(now){
  let hp=cen(...actor),lx=actor[0]+.5,ly=actor[1]+.5,walking=false,alpha=1;
  if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6,a=cen(...tween.from),b=cen(...tween.to);
   hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=tween.from[0]+.5+(tween.to[0]-tween.from[0])*u;ly=tween.from[1]+.5+(tween.to[1]-tween.from[1])*u;walking=true;
-  if(tween.through){
-   // Follow the visible passage: first descend behind the arch, then
-   // emerge from its lower threshold. Fade only while inside the dark mouth.
-   const entrance={x:484,y:453},exit={x:484,y:505};
-   if(t<.33){const u=ease(t/.33);hp={x:a.x+(entrance.x-a.x)*u,y:a.y+(entrance.y-a.y)*u};alpha=1-u*.56;}
-   else if(t<.7){const u=(t-.33)/.37;hp={x:entrance.x+(exit.x-entrance.x)*u,y:entrance.y+(exit.y-entrance.y)*u};alpha=.44+.35*Math.sin(Math.PI*u);}
-   else{const u=ease((t-.7)/.3);hp={x:exit.x+(b.x-exit.x)*u,y:exit.y+(b.y-exit.y)*u};alpha=.44+.56*u;}
-   lx=(t<.7?tween.from:tween.to)[0]+.5;ly=(t<.7?tween.from:tween.to)[1]+.5;
-   walking=true;
+  if(tween.through) {
+   // A single continuous descent beneath the SOUTH gate, not the old
+   // blink/teleport between tiles on two elevations.
+   const stair=[a,{x:485,y:448},{x:485,y:481},{x:486,y:514},b];
+   const lengths=stair.slice(1).map((p,i)=>Math.hypot(p.x-stair[i].x,p.y-stair[i].y));
+   const total=lengths.reduce((x,y)=>x+y,0);
+   let remaining=ease(t)*total;
+   for(let i=0;i<lengths.length;i++) {
+    if(remaining<=lengths[i] || i===lengths.length-1) {
+     const u=Math.min(1,remaining/Math.max(.01,lengths[i]));
+     hp={x:stair[i].x+(stair[i+1].x-stair[i].x)*u,y:stair[i].y+(stair[i+1].y-stair[i].y)*u};
+     break;
+    }
+    remaining-=lengths[i];
+   }
+   // Keep the sprite fully opaque; stone arches supply natural occlusion.
+   alpha=1;walking=true;
+   lx=t<.5?tween.from[0]+.5:tween.to[0]+.5;
+   ly=t<.5?tween.from[1]+.5:tween.to[1]+.5;
   }
   if(t>=1){tween=null;hp=cen(...actor);lx=actor[0]+.5;ly=actor[1]+.5;if(!pending.length)walking=false;arrived();}}
  if(exitWalk){const u=Math.min(1,(now-exitWalk.started)/exitWalk.duration);hp={x:exitWalk.from[0]+(exitWalk.to[0]-exitWalk.from[0])*u,y:exitWalk.from[1]+(exitWalk.to[1]-exitWalk.from[1])*u};walking=true;alpha=1-u;
@@ -348,7 +367,11 @@ function frame(now){
  if(!tween&&pending.length&&!finished&&!exitWalk){const next=pending.shift();if(!makeMove(...next)){pending=[];sfx.bump();}}
  requestAnimationFrame(frame);
 }
-window.__cellar={get state(){return {actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,sealed:sealed(),hasKey,northOpen:!!northDoorAt,finished};}};
+window.__cellar={get state(){return {actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,sealed:sealed(),hasKey,northOpen:!!northDoorAt,finished};},
+ // A diagnostic grid is available to automated regression tests without
+ // changing the public interface or giving players a debug overlay.
+ get geometry(){return {cells:[...floor],blocked:[...blocked],ox:OX,oy:OY,hw:HW,hh:HH};}
+};
 if(location.hash==='#debug')window.__cellar.place=(a,c)=>{actor=a;if(c)crates=c;tween=null;pending=[];};
 restore();requestAnimationFrame(frame);
 })();
