@@ -9,19 +9,13 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 .px{image-rendering:pixelated;image-rendering:crisp-edges}
 #restart{position:absolute;top:2%;right:1.4%;width:4.4%;aspect-ratio:1;padding:0;border:0;background:url(assets/ui/restart.png) center/100% 100% no-repeat;cursor:pointer;opacity:.82;transition:opacity .15s,transform .08s}
 #restart:hover,#restart:focus-visible{opacity:1;outline:none}#restart:active{transform:translateY(1px) scale(.97)}
-#solve{position:absolute;top:10.5%;right:1.4%;font:11px/1 monospace;padding:4px 6px;color:#e8c478;background:#1e1719;border:2px solid #4a3c38;cursor:pointer;opacity:.75}#solve:hover{opacity:1}
-#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;pointer-events:none}
-#inv img{height:66%;transform:rotate(38deg) scale(0);transition:transform .35s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 0 3px rgba(255,200,90,.55))}
-#inv.has img{transform:rotate(38deg) scale(1)}
 #hint{position:absolute;top:3.2%;left:14%;right:14%;text-align:center;color:#f1d8a8;font:clamp(13px,2.2vw,23px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
 #hint.show{opacity:1}
 #win{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 50% 45%,rgba(7,16,20,.35),rgba(3,5,8,.9));color:#f0d3a3;text-shadow:0 3px 9px #000;letter-spacing:.12em;font:clamp(19px,3vw,36px) Georgia,serif;pointer-events:none}
 #win.show{display:flex}#win small{font:italic clamp(12px,1.6vw,18px) Georgia,serif;letter-spacing:.02em;margin-top:14px;color:#c6b29b}
 </style></head><body>
 <div id="stage"><canvas id="game" width="1085" height="566" aria-label="Isometrická hádanka. Dotlač bedny na kamenné pečetě. Šipky nebo kliknutí: pohyb, R: začít znovu."></canvas>
-<div id="inv" class="px" title="Inventář" aria-label="Inventář"><img class="px" src="assets/props/cellar_key.png" alt="Mosazný klíč"></div>
 <button id="restart" class="px" title="Začít znovu (R)" aria-label="Začít znovu"></button>
-<button id="solve" title="Dočasné testovací tlačítko: dosadí bedny na pečetě">TEST: vyřešit</button>
 <div id="hint" aria-live="polite"></div><div id="win">PRŮCHOD JE OTEVŘENÝ<small>Zámek povolil. Chodba za portálem vede dál do tmy…</small></div>
 <audio id="ambient" src="assets/music/before_the_light_soft_soundblaster.ogg" loop preload="none"></audio>
 <audio id="victory" src="assets/music/whisper_under_stone_soundblaster.ogg" loop preload="none"></audio>
@@ -41,14 +35,14 @@ const CRATES_START=[[4,5],[2,6],[3,6],[3,7]];
 const GOALS=[[1,6],[2,6],[3,6],[4,6]];
 const GATE_TOP=[9,7];          // platform cell behind the parapet, straight above the barred gate
 const GATE_LOW=[13,9];         // standing in the gate mouth on the low ground
-const KEY_CELL=[15,9];         // the key lies on the low ground south-west of the gate
-const PORTAL=[-2,9];           // threshold of the east arch
+const PORTAL=[-2,9];           // threshold of the north/east locked arch
+const NORTH_STEP=[-1,9];       // final walkable floor tile in front of the locked door
 const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,458],[516,472],[516,536]];
 
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 const scene=document.createElement('canvas');scene.width=1085;scene.height=566;const sctx=scene.getContext('2d');sctx.imageSmoothingEnabled=false;
 const img=src=>{const i=new Image();i.src=src;return i;};
-const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png'),keyImg=img('assets/props/cellar_key.png');
+const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png');
 const heroFrames={idle:img('assets/character/idle/00.png')};
 for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)heroFrames[dir+i]=img('assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
 const ready=i=>i.complete&&i.naturalWidth>0;
@@ -64,7 +58,6 @@ function cen(x,y){const o=OUTER[x+','+y];if(o)return {x:o[0],y:o[1]};const pl=PL
  if(x<=3&&y>=5&&y<=7)c=3.5-(3.5-c)*1.133;                  // the east chamber reaches right up to its back parapet
  if(x>=4&&x<=9&&y>=5&&y<=10){const c0=c;if(r>7.08)c=4+(c-4)*(1-.0133*(r-7.08));if(c0>6.66)r=5+(r-5)*(1+.027*(c0-6.66));}
  return P(c,r);}
-const KEY_POS=[OUTER[KEY_CELL.join(',')][0],OUTER[KEY_CELL.join(',')][1]+2];
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
 const floor=new Set(BOARD.cells.map(p=>k(...p)));
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
@@ -72,24 +65,28 @@ const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
 const isFloor=(x,y)=>floor.has(k(x,y));
 const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
-if(![START,GATE_TOP,GATE_LOW,KEY_CELL,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
+if(![START,GATE_TOP,GATE_LOW,NORTH_STEP,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
 const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
 // Where a step in direction (dx,dy) leads, or null. Once the gate is raised, stepping "into" the parapet
 // above it takes the hero down through the gate to the low ground, and back again.
 function stepTo(x,y,dx,dy){
+ // The north portal occupies the end of the corridor; its closed door is
+ // solid, not a walkable floor tile until the lock has disengaged.
+ if(x+dx===PORTAL[0]&&y+dy===PORTAL[1]&&(!northDoorAt||performance.now()-northDoorAt<920))return null;
  if(canStep(x,y,dx,dy))return [x+dx,y+dy];
+ // The steep southern threshold is a supported connection only AFTER the grate lifts.
  if(sealedAt!==0&&dy===0){if(dx===1&&x===GATE_TOP[0]&&y===GATE_TOP[1])return [...GATE_LOW];if(dx===-1&&x===GATE_LOW[0]&&y===GATE_LOW[1])return [...GATE_TOP];}
  return null;}
 
 // ---- state ----------------------------------------------------------------------------------
 const SAVE='darkness_cellar_v13';
-const hint=document.querySelector('#hint'),ending=document.querySelector('#win'),invEl=document.querySelector('#inv');
+const hint=document.querySelector('#hint'),ending=document.querySelector('#win');
 const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
 let actor,crates,history,pending,tween,facing,moves,pushes;
-let sealedAt,hasKey,exitWalk,finished;                     // the one-way chain: seals -> vault grate -> key -> portal
+let sealedAt,hasKey,exitWalk,finished,northDoorAt,portalExitStarted,sceneEpoch=0; // seals -> south grate -> hidden key -> north door
 let muted=false,hasInteracted=false,audio=null,hintTimer=0;
-function reset(){actor=[...START];crates=CRATES_START.map(p=>[...p]);history=[];pending=[];tween=null;facing='walk_right';moves=0;pushes=0;
- sealedAt=0;hasKey=false;exitWalk=null;finished=false;invEl.classList.remove('has');ending.classList.remove('show');}
+function reset(){sceneEpoch++;actor=[...START];crates=CRATES_START.map(p=>[...p]);history=[];pending=[];tween=null;facing='walk_right';moves=0;pushes=0;
+ sealedAt=0;hasKey=false;exitWalk=null;finished=false;northDoorAt=0;portalExitStarted=false;ending.classList.remove('show');}
 reset();
 const crateAt=(x,y)=>crates.findIndex(b=>b[0]===x&&b[1]===y);
 const sealed=()=>sealedAt!==0;
@@ -101,7 +98,11 @@ function restore(){try{
  const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==GOALS.length||set.has(k(...a.actor)))return;
  if(a.finished)return;                                      // a finished run starts over
  actor=[...a.actor];crates=a.crates.map(p=>[...p]);moves=a.moves|0;pushes=a.pushes|0;
- if(a.sealed){sealedAt=-1e9;hasKey=!!a.hasKey;invEl.classList.toggle('has',hasKey);}
+ if(a.sealed){sealedAt=-1e9;hasKey=!!a.hasKey;
+   // Migrate existing saved progress: on the lower corridor the key is now
+   // acquired as part of crossing the opened southern gate, not an invisible pickup.
+   if(actor[0]>=13&&actor[1]===9)hasKey=true;
+ }
  }catch(e){}}
 
 // ---- sound ----------------------------------------------------------------------------------
@@ -144,13 +145,36 @@ function makeMove(dx,dy){
  checkSeals();save();return true;
 }
 const at=(p,q)=>p[0]===q[0]&&p[1]===q[1];
+function unlockNorthDoor(){
+ if(northDoorAt||!hasKey||finished)return;
+ northDoorAt=performance.now()||1;sfx.unlock();
+ message('Starý klíč zapadl do zámku severní brány. Těžké dveře se otevírají…',3700);
+ const epoch=sceneEpoch;
+ setTimeout(()=>{if(epoch!==sceneEpoch||finished||exitWalk)return;
+   if(at(actor,NORTH_STEP)){pending=[[-1,0]];}
+ },1060);
+}
 function arrived(){                                           // called when a step has finished
+ // The southern gate gives up its mechanism key as the character walks
+ // through. There is deliberately NO drawn key, inventory icon or key box.
+ if(sealed()&&at(actor,GATE_LOW)&&!hasKey&&!northDoorAt){
+   hasKey=true;sfx.key();save();
+   message('V uvolněném mechanismu nahmatáš starý klíč. Schováš ho pod plášť.',4500);
+ }
+ if(at(actor,PORTAL)&&northDoorAt&&!portalExitStarted){
+   portalExitStarted=true;hasKey=false;
+   const a=cen(...actor),epoch=sceneEpoch;
+   setTimeout(()=>{if(epoch!==sceneEpoch||finished)return;
+     exitWalk={from:[a.x,a.y],to:[958,184],started:performance.now(),duration:900};
+     facing='walk_right';
+   },250);
+   return;
+ }
  if(pending.length)return;
- if(at(actor,KEY_CELL)&&!hasKey){hasKey=true;invEl.classList.add('has');sfx.key();save();message('Mosazný klíč. Je studený a těžký — tenhle bude patřit k portálu nahoře.',4800);}
- if(at(actor,PORTAL)){
-  if(!hasKey){sfx.bump();message('Portál je zamčený. Bez klíče jím neprojdu.',4200);}
-  else{hasKey=false;invEl.classList.remove('has');sfx.unlock();message('Klíč zapadl do zámku. Portál se otevírá…',3600);
-   const a=cen(...actor);setTimeout(()=>{exitWalk={from:[a.x,a.y],to:[958,184],started:performance.now(),duration:900};facing='walk_right';},650);}}
+ if(at(actor,NORTH_STEP)){
+   if(hasKey)unlockNorthDoor();
+   else message('Severní brána je pevně zamčená. Něco musí uvolnit její zámek.',4000);
+ }
 }
 function undo(){if(!history.length||finished||exitWalk)return;pending=[];tween=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;tone(180,.12,.035,'triangle');save();}
 function restart(){reset();victory.pause();victory.currentTime=0;wake();tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
@@ -167,9 +191,14 @@ function go(to,why){if(at(actor,to)){arrived();return;}const route=walkTo(to);if
 function cellAt(sx,sy){let best=null,bd=1.15;for(const key of floor){const [x,y]=key.split(',').map(Number),p=cen(x,y),d=Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH;if(d<bd){bd=d;best=[x,y];}}return best;}
 function onClick(ev){if(finished||exitWalk)return;wake();
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
- if(sx>=905&&sx<=1005&&sy>=70&&sy<=232){go(PORTAL,'K portálu se teď nedostanu.');return;}       // the east arch
+ if(sx>=905&&sx<=1005&&sy>=70&&sy<=232){
+   if(northDoorAt)go(PORTAL,'Severní brána se ještě otevírá.');
+   else {go(NORTH_STEP,'K severní bráně se teď nedostanu.');
+     if(!hasKey)message('Severní brána je zamčená. K otevření bude potřeba klíč.',4000);}
+   return;
+ } // northern locked door
  const low=cellAt(sx,sy),toLow=ctx.isPointInPath(vaultPath,sx,sy)?GATE_LOW:(low&&low[0]>=13?low:null);            // the barred gate and the low ground beyond it
- if(toLow){if(!sealed())message('Zamřížovaný průchod pod plošinou je zavřený. Za ním se na zemi leskne klíč.',4200);else go(toLow,'K mříži se teď nedostanu.');return;}
+ if(toLow){if(!sealed())message('Jižní mříž je zavřená. Otevře se až po vyřešení kamenných pečetí.',4200);else go(toLow,'K jižní bráně se teď nedostanu.');return;}
  // crates first (their sprites stand taller than the tile), front-most wins
  let best=-1,bd=-1;for(let i=0;i<crates.length;i++){const p=cen(...crates[i]);if(sx>p.x-28&&sx<p.x+28&&sy>p.y-50&&sy<p.y+19&&crates[i][0]+crates[i][1]>bd){bd=crates[i][0]+crates[i][1];best=i;}}
  if(best>=0){const b=crates[best],dx=b[0]-actor[0],dy=b[1]-actor[1];
@@ -187,27 +216,79 @@ document.addEventListener('keydown',ev=>{
  else if(key==='m'){muted=!muted;ambient.muted=victory.muted=muted;}
 });
 document.querySelector('#restart').onclick=restart;
-// TEMPORARY testing aid: drops every crate onto a seal. Remove this handler and the #solve button when done.
-document.querySelector('#solve').onclick=()=>{if(finished||exitWalk)return;wake();pending=[];tween=null;crates=GOALS.map(p=>[...p]);
- if(crateAt(...actor)!==-1)actor=[5,7];checkSeals();save();};
-
 // ---- drawing --------------------------------------------------------------------------------
 const vaultPath=new Path2D();VAULT.forEach((p,i)=>i?vaultPath.lineTo(p[0],p[1]):vaultPath.moveTo(p[0],p[1]));vaultPath.closePath();
 const ease=t=>t*t*(3-2*t);
-function drawKeyOnFloor(c,now){if(!ready(keyImg))return;const [x,y]=KEY_POS,h=20,w=h*keyImg.naturalWidth/keyImg.naturalHeight,tw=.5+.5*Math.sin(now/260);
- const g=c.createRadialGradient(x,y,1,x,y,13);g.addColorStop(0,`rgba(255,206,110,${.3+.2*tw})`);g.addColorStop(1,'rgba(255,190,90,0)');c.fillStyle=g;c.fillRect(x-14,y-14,28,28);
- c.save();c.translate(x,y);c.rotate(1.35);c.drawImage(keyImg,-w/2,-h/2,w,h);c.restore();
- if(tw>.8){c.fillStyle='#fff6d0';c.fillRect(x+3,y-5,1,5);c.fillRect(x+1,y-3,5,1);}}
-function paintScene(now){                                     // the painting, the key on the low ground, the gate's grate
+/* Northern locked oak door. The pixels are drawn on the SAME room canvas,
+   entirely within the existing painted arch; no second scene is overlaid. */
+function drawNorthernDoor(c,now) {
+ const q=northDoorAt?ease(Math.min(1,(now-northDoorAt)/960)):0;
+ const left=908,top=105,width=89,height=132;
+ c.save();
+ c.beginPath();
+ c.moveTo(910,222);c.lineTo(910,150);
+ c.quadraticCurveTo(914,100,947,97);
+ c.quadraticCurveTo(991,106,994,153);
+ c.lineTo(994,222);c.closePath();
+ c.clip();
+ // Recess between the opened leaf and the chamber beyond.
+ c.fillStyle='#090b10';c.fillRect(907,94,90,134);
+ const glow=c.createLinearGradient(910,117,996,225);
+ glow.addColorStop(0,'#0c1015');glow.addColorStop(1,'#17120f');
+ c.fillStyle=glow;c.fillRect(916,107,80,118);
+ if(q<.999) {
+  // Hinge on the LEFT stone jamb; the leaf narrows as it swings inside.
+  c.save();c.translate(left+3,0);c.transform(1-.93*q,0,-.07*q,1,0,0);
+  c.fillStyle='#2a1814';c.fillRect(0,100,width,height);
+  const planks=['#483025','#523426','#432a22','#5c3a28','#3e2923','#513427','#402a23'];
+  for(let i=0;i<7;i++){
+   c.fillStyle=planks[i];c.fillRect(2+i*12,101,11,height-2);
+   c.fillStyle='rgba(218,151,85,.21)';c.fillRect(3+i*12,103,1,height-4);
+   c.fillStyle='rgba(8,5,7,.5)';c.fillRect(12+i*12,104,2,height-6);
+  }
+  c.fillStyle='#241c20';c.fillRect(0,153,87,7);c.fillRect(0,197,87,7);
+  c.fillStyle='#665344';c.fillRect(0,153,87,2);c.fillRect(0,197,87,2);
+  for(let x of [5,40,77])for(let y of [156,200]){c.fillStyle='#9e7a50';c.fillRect(x,y,3,3);c.fillStyle='#211820';c.fillRect(x+2,y+2,1,1);}
+  for(let y of [122,194]){c.fillStyle='#5a4d45';c.fillRect(1,y,8,10);c.fillStyle='#c39b59';c.fillRect(3,y+2,3,2);}
+  c.fillStyle='#a07b4b';c.fillRect(69,173,12,20);c.fillStyle='#241a1c';c.fillRect(72,178,6,12);
+  c.fillStyle='#f0bd70';c.fillRect(74,180,2,3);c.fillRect(73,183,4,3);
+  c.restore();
+ }
+ c.restore();
+}
+/* The lower (southern) portcullis has an actual raised state. Remove only
+   the pre-painted bars within the vaulted opening; keep its stone frame. */
+function drawSouthernGate(c,now) {
+ const t=sealed()?Math.min(1,(now-sealedAt)/1700):0,p=ease(Math.max(0,t));
+ c.save();c.clip(vaultPath);
+ const shade=c.createLinearGradient(455,445,510,540);
+ shade.addColorStop(0,'#15151b');shade.addColorStop(.48,'#090b11');shade.addColorStop(1,'#03070b');
+ c.fillStyle=shade;c.fillRect(447,437,80,111);
+ // The dark steps behind the grate are revealed as it rises.
+ for(let i=0;i<4;i++){const y=480+i*17;
+   c.fillStyle=i%2?'#25232a':'#201f25';c.fillRect(455+i*2,y,62-i*4,5);
+   c.fillStyle='#3e3430';c.fillRect(455+i*2,y,62-i*4,1);
+ }
+ const warm=c.createRadialGradient(486,491,2,486,491,56);
+ warm.addColorStop(0,'rgba(219,114,48,.12)');warm.addColorStop(1,'rgba(0,0,0,0)');
+ c.fillStyle=warm;c.fillRect(444,438,90,111);
+ c.save();c.translate(0,-p*110);
+ // Barbed medieval portcullis, rising behind the stone arch.
+ c.fillStyle='#1c1b20';c.fillRect(457,452,60,7);c.fillRect(457,522,60,8);
+ c.fillStyle='#665c53';c.fillRect(459,453,56,2);c.fillRect(459,523,56,2);
+ for(let x=463;x<=511;x+=12){
+   c.fillStyle='#101116';c.fillRect(x-2,449,6,85);
+   c.fillStyle='#75665a';c.fillRect(x-1,453,2,77);
+   c.fillStyle='#ab8e6d';c.fillRect(x,464,1,58);
+ }
+ for(let y of [475,507]){c.fillStyle='#191a20';c.fillRect(458,y,58,5);c.fillStyle='#7d6853';c.fillRect(460,y+1,54,1);}
+ c.restore();c.restore();
+}
+function paintScene(now) {
  if(ready(bg))sctx.drawImage(bg,0,0,1085,566);else{sctx.fillStyle='#1b1519';sctx.fillRect(0,0,1085,566);}
  if(!ready(bg))return;
- if(!hasKey&&!finished)drawKeyOnFloor(sctx,now);
- if(!sealed())return;
- const p=Math.min(1,(now-sealedAt)/1300),e=ease(p);
- sctx.save();sctx.clip(vaultPath);sctx.fillStyle='#050304';sctx.fillRect(440,430,90,120);
- const g=sctx.createRadialGradient(484,516,2,484,516,44);g.addColorStop(0,`rgba(255,160,64,${.2*e})`);g.addColorStop(1,'rgba(255,150,60,0)');sctx.fillStyle=g;sctx.fillRect(440,430,90,120);
- if(p<1)sctx.drawImage(bg,440,430,90,120,440,430-e*96,90,120);
- sctx.restore();
+ drawSouthernGate(sctx,now);
+ drawNorthernDoor(sctx,now);
 }
 function occlude(lx,ly,bx,by,bw,bh){                          // redraw every wall that stands in front of lattice point (lx,ly)
  for(const w of WALLS){if(lx>=w.box[1]-.001||ly>=w.box[3]-.001)continue;
@@ -228,7 +309,16 @@ function frame(now){
  let hp=cen(...actor),lx=actor[0]+.5,ly=actor[1]+.5,walking=false,alpha=1;
  if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6,a=cen(...tween.from),b=cen(...tween.to);
   hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=tween.from[0]+.5+(tween.to[0]-tween.from[0])*u;ly=tween.from[1]+.5+(tween.to[1]-tween.from[1])*u;walking=true;
-  if(tween.through){const first=t<.5;hp=first?a:b;lx=(first?tween.from:tween.to)[0]+.5;ly=(first?tween.from:tween.to)[1]+.5;alpha=Math.abs(1-2*t);walking=false;}
+  if(tween.through){
+   // Follow the visible passage: first descend behind the arch, then
+   // emerge from its lower threshold. Fade only while inside the dark mouth.
+   const entrance={x:484,y:453},exit={x:484,y:505};
+   if(t<.33){const u=ease(t/.33);hp={x:a.x+(entrance.x-a.x)*u,y:a.y+(entrance.y-a.y)*u};alpha=1-u*.56;}
+   else if(t<.7){const u=(t-.33)/.37;hp={x:entrance.x+(exit.x-entrance.x)*u,y:entrance.y+(exit.y-entrance.y)*u};alpha=.44+.35*Math.sin(Math.PI*u);}
+   else{const u=ease((t-.7)/.3);hp={x:exit.x+(b.x-exit.x)*u,y:exit.y+(b.y-exit.y)*u};alpha=.44+.56*u;}
+   lx=(t<.7?tween.from:tween.to)[0]+.5;ly=(t<.7?tween.from:tween.to)[1]+.5;
+   walking=true;
+  }
   if(t>=1){tween=null;hp=cen(...actor);lx=actor[0]+.5;ly=actor[1]+.5;if(!pending.length)walking=false;arrived();}}
  if(exitWalk){const u=Math.min(1,(now-exitWalk.started)/exitWalk.duration);hp={x:exitWalk.from[0]+(exitWalk.to[0]-exitWalk.from[0])*u,y:exitWalk.from[1]+(exitWalk.to[1]-exitWalk.from[1])*u};walking=true;alpha=1-u;
   if(u>=1&&!finished){finished=true;ending.classList.add('show');save();}}
@@ -258,7 +348,7 @@ function frame(now){
  if(!tween&&pending.length&&!finished&&!exitWalk){const next=pending.shift();if(!makeMove(...next)){pending=[];sfx.bump();}}
  requestAnimationFrame(frame);
 }
-window.__cellar={get state(){return {actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,sealed:sealed(),hasKey,finished};}};
+window.__cellar={get state(){return {actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,sealed:sealed(),hasKey,northOpen:!!northDoorAt,finished};}};
 if(location.hash==='#debug')window.__cellar.place=(a,c)=>{actor=a;if(c)crates=c;tween=null;pending=[];};
 restore();requestAnimationFrame(frame);
 })();
