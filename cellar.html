@@ -25,28 +25,29 @@ button:hover{background:#574031}button:focus-visible{outline:2px solid #f3d6a7;o
 </div>
 <script>
 (()=>{'use strict';
-// The SAME map determines visible stone geometry (baked into the scene asset),
-// collisions, crate behavior, target sockets and pathfinding. Keep in sync
-// with build_assets.py, which paints the walls and floor from GRID.
+// One genuinely painted, single scene (no grid-generated/schematic floor
+// texture, no second overlapping map). The GRID below is a plain open room
+// with two border openings (stairs entrance, gated exit) — it only decides
+// collisions and pathfinding, and never gets painted on top of the art, so
+// there is nothing for it to visually clash with.
 const GRID = [
- '######.######',
- '#..#........#',
- '#..#..#.#...#',
- '#.....#.#...#',
- '#..#......#.#',
- '#..#..##....#',
- '#.....#..#..#',
- '.......#....#',
- '#############'
+ '########.##',
+ '#.........#',
+ '#.........#',
+ '#.........#',
+ '#.........#',
+ '#.........#',
+ '#.........#',
+ '#########.#'
 ];
-const W=13,H=9,HW=36,HH=19,OX=558,OY=99;
-// The actual staircase on the left is the entrance; the right-hand arch
-// is the exit. Both border cells are open in GRID and visibly paved.
-const PLAYER_START=[6,0], EXIT=[0,7];
-const CRATES_START=[[5,1],[7,1],[9,2],[10,2],[10,3]];
-const GOALS=[[10,2],[11,3],[9,1],[10,1],[11,1]];
+const W=11,H=8,HW=40,HH=22,OX=545,OY=130;
+// The staircase (top-left alcove) is the entrance; the barred gate
+// (bottom, front) is the exit. Both border cells are open in GRID.
+const PLAYER_START=[8,0], EXIT=[9,7];
+const CRATES_START=[[3,3],[5,3],[7,3]];
+const GOALS=[[3,5],[5,5],[7,5]];
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
-const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_maze_entry_exit_v9.jpg';crateImg.src='assets/props/crate_v8.png';
+const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_single_scene.jpg';crateImg.src='assets/props/crate_pixel.png';
 const heroFrames={};function loadSprite(id,src){let im=new Image();im.src=src;heroFrames[id]=im;}
 loadSprite('idle','assets/character/idle/00.png');
 for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)loadSprite(dir+i,'assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
@@ -54,7 +55,7 @@ const floor=new Set(),walls=new Set(),goals=new Set(GOALS.map(([x,y])=>x+','+y))
 const k=(x,y)=>x+','+y,at=(x,y)=>({x:OX+(y-x)*HW,y:OY+(x+y)*HH});
 if(GRID.length!==H || GRID.some(row=>row.length!==W))throw Error('Corrupt level dimensions');
 for(let y=0;y<H;y++)for(let x=0;x<W;x++)(GRID[y][x]==='#'?walls:floor).add(k(x,y));
-if(!floor.has(k(...PLAYER_START))||!floor.has(k(...EXIT))||CRATES_START.length!==5||GOALS.length!==5||GOALS.some(([x,y])=>!floor.has(k(x,y))))throw Error('Invalid crate/exit tile');
+if(!floor.has(k(...PLAYER_START))||!floor.has(k(...EXIT))||CRATES_START.length!==3||GOALS.length!==3||GOALS.some(([x,y])=>!floor.has(k(x,y))))throw Error('Invalid crate/exit tile');
 const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
 const hint=document.querySelector('#hint'),ending=document.querySelector('#win');let hintTimer=0;
 let actor=[...PLAYER_START],crates=CRATES_START.map(p=>[...p]),history=[],pending=[],tween=null,facing='walk_right',finished=false,gateOpen=false, muted=false,hasInteracted=false,audioContext=null,startedVictory=false;
@@ -73,11 +74,11 @@ function beep(f=130,time=.1,v=.035,type='triangle'){
  o.type=type;o.frequency.value=f;gain.gain.setValueAtTime(v,t);gain.gain.exponentialRampToValueAtTime(.0001,t+time);
  o.connect(gain).connect(audioContext.destination);o.start(t);o.stop(t+time);
 }
-function saved(){try{localStorage.setItem('darkness_cellar_v9',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
+function saved(){try{localStorage.setItem('darkness_cellar_v10',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
 function restore(){try{
- const a=JSON.parse(localStorage.getItem('darkness_cellar_v9'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==5)return;
+ const a=JSON.parse(localStorage.getItem('darkness_cellar_v10'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==3)return;
  if(!isFloor(...a.actor)||a.crates.some(p=>!Array.isArray(p)||!isFloor(...p)))return;
- const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==5||set.has(k(...a.actor)))return;
+ const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==3||set.has(k(...a.actor)))return;
  actor=[...a.actor];crates=a.crates.map(p=>[...p]);moves=a.moves|0;pushes=a.pushes|0;
  gateOpen=GOALS.every(p=>set.has(k(...p)));finished=gateOpen&&actor[0]===EXIT[0]&&actor[1]===EXIT[1];
  ending.classList.toggle('show',finished);
@@ -85,7 +86,7 @@ function restore(){try{
 }
 function complete(){gateOpen=true;ambient.pause();victory.currentTime=0; if(!muted)victory.play().catch(()=>{});
  [196,247,294,392,494].forEach((n,i)=>setTimeout(()=>beep(n,.75,.1,'sine'),i*180));
- message('Pět kamenných pečetí zapadlo. Dveře na východě se otevírají...',4800);saved();
+ message('Tři kamenné pečetě zapadly na místo. Dveře na východě se otevírají...',4800);saved();
 }
 function makeMove(dx,dy){
  if(finished||tween)return false;
@@ -134,10 +135,10 @@ function queue(dx,dy){if(finished)return;sound();
 }
 function onClick(ev){if(finished)return;sound();
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
- // The illustrated eastern ARCH is the destination. Clicking directly on
- // it is equivalent to clicking the corresponding exit tile on the map.
- if(sx>=925 && sx<=1055 && sy>=147 && sy<=322){
-   if(!gateOpen){message('Dveře zatím drží. Nejprve musí zapadnout všech pět pečetí.');return;}
+ // The illustrated barred gate at the front of the room is the destination.
+ // Clicking directly on it is equivalent to clicking the exit tile on the map.
+ if(sx>=400 && sx<=575 && sy>=420 && sy<=530){
+   if(!gateOpen){message('Dveře zatím drží. Nejprve musí zapadnout všechny tři pečetě.');return;}
    const route=shortestWalk(EXIT);
    if(route)pending=route;
    return;
@@ -175,6 +176,16 @@ function frame(now){
  ctx.clearRect(0,0,1085,566);
  if(bg.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,1085,566);
  else{ctx.fillStyle='#1b1519';ctx.fillRect(0,0,1085,566);}
+ // Drawn goal sigils (never baked into the scene art) mark the sockets;
+ // each ring glows warmer once its crate has been pushed onto it.
+ for(const [gx,gy] of GOALS){
+  const p=at(gx,gy),filled=crateAt(gx,gy)!==-1,pulse=.55+.25*Math.sin(now/420+gx+gy);
+  ctx.save();ctx.globalAlpha=filled?.85:.4+.15*pulse;
+  ctx.strokeStyle=filled?'#f0c878':'#8a6a3c';ctx.lineWidth=filled?3:2;
+  ctx.beginPath();ctx.ellipse(p.x,p.y+6,22,10,0,0,Math.PI*2);ctx.stroke();
+  ctx.beginPath();ctx.ellipse(p.x,p.y+6,13,6,0,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+ }
  let px=actor[0],py=actor[1],walk=false;
  if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=t*t*(3-2*t);
   px=tween.from[0]+(tween.to[0]-tween.from[0])*u;
