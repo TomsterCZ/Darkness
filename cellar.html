@@ -6,215 +6,253 @@
 body{min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif}
 #stage{position:relative;width:min(1200px,100vw);aspect-ratio:1085/566;overflow:hidden;background:#100b11}
 canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-action:none;cursor:pointer}
-#controls{position:absolute;top:12px;right:12px;display:flex;gap:7px;opacity:.64;transition:opacity .2s}
-#controls:hover,#controls:focus-within{opacity:1}button{border:1px solid #806a50;background:rgba(17,12,13,.82);color:#eed1a0;font:22px Georgia,serif;width:38px;height:38px;border-radius:3px;cursor:pointer}
-button:hover{background:#574031}button:focus-visible{outline:2px solid #f3d6a7;outline-offset:2px}
-#dpad{display:none;position:absolute;left:10px;bottom:8px;gap:4px}#dpad button{width:43px;height:43px}
-#hint{position:absolute;bottom:8%;left:16%;right:16%;text-align:center;color:#f1d8a8;font:clamp(14px,2.4vw,24px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
+.px{image-rendering:pixelated;image-rendering:crisp-edges}
+#restart{position:absolute;top:2%;right:1.4%;width:4.4%;aspect-ratio:1;padding:0;border:0;background:url(assets/ui/restart.png) center/100% 100% no-repeat;cursor:pointer;opacity:.82;transition:opacity .15s,transform .08s}
+#restart:hover,#restart:focus-visible{opacity:1;outline:none}#restart:active{transform:translateY(1px) scale(.97)}
+#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;background:url(assets/ui/slot.png) center/100% 100% no-repeat;display:flex;align-items:center;justify-content:center;opacity:.9}
+#inv img{height:66%;transform:rotate(38deg) scale(0);transition:transform .35s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 0 3px rgba(255,200,90,.55))}
+#inv.has img{transform:rotate(38deg) scale(1)}
+#hint{position:absolute;bottom:6%;left:14%;right:14%;text-align:center;color:#f1d8a8;font:clamp(13px,2.2vw,23px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
 #hint.show{opacity:1}
-#win{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 50% 45%,rgba(7,16,20,.35),rgba(3,5,8,.87));color:#f0d3a3;text-shadow:0 3px 9px #000;letter-spacing:.12em;font:clamp(19px,3vw,36px) Georgia,serif;pointer-events:none}
+#win{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse at 50% 45%,rgba(7,16,20,.35),rgba(3,5,8,.9));color:#f0d3a3;text-shadow:0 3px 9px #000;letter-spacing:.12em;font:clamp(19px,3vw,36px) Georgia,serif;pointer-events:none}
 #win.show{display:flex}#win small{font:italic clamp(12px,1.6vw,18px) Georgia,serif;letter-spacing:.02em;margin-top:14px;color:#c6b29b}
-@media(max-width:760px) and (pointer:coarse){#dpad{display:flex}}
 </style></head><body>
-<div id="stage"><canvas id="game" width="1085" height="566" aria-label="Isometrická hádanka. Posouvej dřevěné bedny na starobylé kamenné pečetě. Šipky pohyb, Z zpět, R restart."></canvas>
-<div id="controls"><button id="back" title="Zpět do kobky" aria-label="Zpět do kobky">↶</button><button id="undo" title="Vrátit tah (Z)" aria-label="Vrátit tah">↰</button><button id="restart" title="Začít znovu (R)" aria-label="Začít znovu">↻</button><button id="mute" title="Přepnout hudbu" aria-label="Přepnout hudbu">♫</button></div>
-<div id="dpad"><button data-dx="-1" data-dy="0" aria-label="Severovýchod">↗</button><button data-dx="0" data-dy="1" aria-label="Jihovýchod">↘</button><button data-dx="1" data-dy="0" aria-label="Jihozápad">↙</button><button data-dx="0" data-dy="-1" aria-label="Severozápad">↖</button></div>
-<div id="hint" aria-live="polite"></div><div id="win">PRŮCHOD JE OTEVŘENÝ<small>Kamenné pečetě konečně ustoupily...</small></div>
+<div id="stage"><canvas id="game" width="1085" height="566" aria-label="Isometrická hádanka. Dotlač bedny na kamenné pečetě. Šipky nebo kliknutí: pohyb, R: začít znovu."></canvas>
+<div id="inv" class="px" title="Inventář" aria-label="Inventář"><img class="px" src="assets/props/cellar_key.png" alt="Mosazný klíč"></div>
+<button id="restart" class="px" title="Začít znovu (R)" aria-label="Začít znovu"></button>
+<div id="hint" aria-live="polite"></div><div id="win">PRŮCHOD JE OTEVŘENÝ<small>Mříž za tebou zapadla. Chodba vede dál do tmy…</small></div>
 <audio id="ambient" src="assets/music/before_the_light_soft_soundblaster.ogg" loop preload="none"></audio>
 <audio id="victory" src="assets/music/whisper_under_stone_soundblaster.ogg" loop preload="none"></audio>
 </div>
 <script>
 (()=>{'use strict';
-// One genuinely painted, single scene (no grid-generated/schematic floor
-// texture, no second overlapping map). The GRID below is a plain open room
-// with two border openings (stairs entrance, gated exit) — it only decides
-// collisions and pathfinding, and never gets painted on top of the art, so
-// there is nothing for it to visually clash with.
-const GRID = [
- '########.##',
- '#.........#',
- '#.........#',
- '#.........#',
- '#.........#',
- '#.........#',
- '#.........#',
- '#########.#'
-];
-const W=11,H=8,HW=40,HH=22,OX=545,OY=130;
-// The staircase (top-left alcove) is the entrance; the barred gate
-// (bottom, front) is the exit. Both border cells are open in GRID.
-const PLAYER_START=[8,0], EXIT=[9,7];
-const CRATES_START=[[3,3],[5,3],[7,3]];
-const GOALS=[[3,5],[5,5],[7,5]];
+// ---------------------------------------------------------------------------------------------
+// The board is derived from the painted scene by tools/cellar_level.py: which paving cells are
+// open floor, which steps a wall blocks, and a silhouette for every wall so that whatever
+// stands behind a wall is hidden by it. Nothing here is drawn as a second "map" over the art.
+// ---------------------------------------------------------------------------------------------
+/*BOARD-BEGIN*/const BOARD={"OX":564.1,"OY":80.2,"HW":37.6,"HH":19.2,"cells":[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[8,1],[9,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[9,6],[10,6],[0,7],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,7],[8,7],[9,7],[4,8],[5,8],[6,8],[7,8],[8,8],[9,8],[4,9],[5,9],[6,9],[7,9],[8,9],[9,9],[4,10],[5,10],[6,10],[7,10],[8,10],[9,10]],"blocked":[[[3,2],[4,2]],[[3,3],[4,3]],[[4,4],[4,5]],[[5,4],[5,5]],[[6,4],[6,5]],[[7,4],[7,5]],[[8,4],[8,5]]],"walls":[{"n":"WM","box":[4.2,9.1,4.75,5.25],"hull":[[400.6,307.3],[584.6,213.3],[603.4,222.7],[603.4,261.7],[419.4,355.7],[400.6,346.3]]},{"n":"W3","box":[-0.32,3.64,4.12,4.68],"hull":[[584.6,191.3],[730.6,114.3],[749.4,123.7],[749.4,162.7],[603.4,239.7],[584.6,230.3]]},{"n":"W2","box":[3.75,4.26,2.44,4.53],"hull":[[495.6,169.7],[514.4,160.3],[593.4,200.3],[593.4,239.3],[574.6,248.7],[495.6,208.7]]},{"n":"W1","box":[1.65,7.53,-0.54,0.2],"hull":[[260.6,175.3],[490.6,67.3],[509.4,76.7],[509.4,115.7],[279.4,223.7],[260.6,214.3]]},{"n":"W4","box":[-1.01,-0.37,4.72,8.31],"hull":[[755.6,124.7],[774.4,115.3],[914.4,181.3],[914.4,220.3],[895.6,229.7],[755.6,163.7]]},{"n":"W6","box":[3.2,3.75,8.57,11.43],"hull":[[747.6,276.7],[766.4,267.3],[871.4,323.3],[871.4,362.3],[852.6,371.7],[747.6,315.7]]},{"n":"W7a","box":[3.58,6.66,11.11,11.7],"hull":[[732,382.5],[847,323.5],[869,334.5],[869,373.5],[754,432.5],[732,421.5]]},{"n":"W7b","box":[6.65,10.28,11.12,12.24],"hull":[[616,462.5],[732,382.5],[754,393.5],[754,432.5],[638,512.5],[616,501.5]]},{"n":"W8b","box":[9.76,10.75,7.08,12.07],"hull":[[426,383.5],[448,372.5],[651,460.5],[651,499.5],[629,510.5],[426,422.5]]},{"n":"W8j","box":[10.46,11.5,6.83,7.44],"hull":[[392.6,395.3],[427.6,373.3],[446.4,382.7],[446.4,421.7],[411.4,443.7],[392.6,434.3]]},{"n":"W8a","box":[11.18,12.57,3.36,7.24],"hull":[[218,347],[246,333],[416,395],[416,434],[388,448],[218,386]]},{"n":"W9b","box":[10.17,12.07,2.9,3.48],"hull":[[222.6,330.3],[290.6,292.3],[309.4,301.7],[309.4,340.7],[241.4,378.7],[222.6,369.3]]},{"n":"W9a","box":[9.91,10.47,0.61,3.36],"hull":[[195.6,252.7],[214.4,243.3],[315.4,297.3],[315.4,336.3],[296.6,345.7],[195.6,291.7]]},{"n":"W5a","box":[-0.73,-0.16,7.91,8.53],"hull":[[871,173.9],[889,162.0],[909,173.0],[909,229.0],[891,240.9],[871,229.9]]},{"n":"W5b","box":[0.92,3.65,8.13,9.05],"hull":[[747,274.0],[835,215.0],[855,226.0],[855,265.0],[767,324.0],[747,313.0]]},{"n":"POSTL","box":[0.92,1.5,8.13,8.76],"hull":[[817,210.1],[835,198.0],[855,209.0],[855,265.0],[837,277.1],[817,266.1]]}]};/*BOARD-END*/
+const {OX,OY,HW,HH}=BOARD;
+// Level: solver-verified (tools/sokoban_gen.cpp). Crates are pushed, never pulled.
+const START=[8,0];
+const CRATES_START=[[4,5],[2,6],[3,6],[3,7]];
+const GOALS=[[1,6],[2,6],[3,6],[4,6]];
+const KEY_CELL=[9,7];          // the floor tile behind the parapet, straight above the barred vault
+const GATE_STAND=[0,7];        // where the hero stands to unlock the wicket gate by the east arch
+const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,458],[516,472],[516,536]];
+const WICKET={x:844,y:180,depth:7.95,line:x=>196.4+(881-x)*0.6694+40};
+
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
-const bg=new Image(),crateImg=new Image();bg.src='assets/scene/cellar_single_scene.jpg';crateImg.src='assets/props/crate_pixel.png';
-const heroFrames={};function loadSprite(id,src){let im=new Image();im.src=src;heroFrames[id]=im;}
-loadSprite('idle','assets/character/idle/00.png');
-for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)loadSprite(dir+i,'assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
-const floor=new Set(),walls=new Set(),goals=new Set(GOALS.map(([x,y])=>x+','+y));
-const k=(x,y)=>x+','+y,at=(x,y)=>({x:OX+(y-x)*HW,y:OY+(x+y)*HH});
-if(GRID.length!==H || GRID.some(row=>row.length!==W))throw Error('Corrupt level dimensions');
-for(let y=0;y<H;y++)for(let x=0;x<W;x++)(GRID[y][x]==='#'?walls:floor).add(k(x,y));
-if(!floor.has(k(...PLAYER_START))||!floor.has(k(...EXIT))||CRATES_START.length!==3||GOALS.length!==3||GOALS.some(([x,y])=>!floor.has(k(x,y))))throw Error('Invalid crate/exit tile');
-const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
-const hint=document.querySelector('#hint'),ending=document.querySelector('#win');let hintTimer=0;
-let actor=[...PLAYER_START],crates=CRATES_START.map(p=>[...p]),history=[],pending=[],tween=null,facing='walk_right',finished=false,gateOpen=false, muted=false,hasInteracted=false,audioContext=null,startedVictory=false;
-let moves=0,pushes=0;
-const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
+const scene=document.createElement('canvas');scene.width=1085;scene.height=566;const sctx=scene.getContext('2d');sctx.imageSmoothingEnabled=false;
+const img=src=>{const i=new Image();i.src=src;return i;};
+const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png'),gateImg=img('assets/props/cellar_gate.png'),keyImg=img('assets/props/cellar_key.png');
+const heroFrames={idle:img('assets/character/idle/00.png')};
+for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)heroFrames[dir+i]=img('assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
+const ready=i=>i.complete&&i.naturalWidth>0;
+
+// ---- geometry -------------------------------------------------------------------------------
+const k=(x,y)=>x+','+y;
+const P=(c,r)=>({x:OX+(r-c)*HW,y:OY+(c+r)*HH});           // lattice point -> pixel (floor level)
+const cen=(x,y)=>P(x+.5,y+.5);                             // centre of cell (x,y)
+const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
+const floor=new Set(BOARD.cells.map(p=>k(...p)));
+const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
+const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
+  const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
 const isFloor=(x,y)=>floor.has(k(x,y));
+const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
+if(![START,KEY_CELL,GATE_STAND,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
+const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
+
+// ---- state ----------------------------------------------------------------------------------
+const SAVE='darkness_cellar_v12';
+const hint=document.querySelector('#hint'),ending=document.querySelector('#win'),invEl=document.querySelector('#inv');
+const ambient=document.querySelector('#ambient'),victory=document.querySelector('#victory');ambient.volume=.25;victory.volume=.42;
+let actor,crates,history,pending,tween,facing,moves,pushes;
+let sealedAt,keyOut,hasKey,unlockAt,exitWalk,finished;      // the one-way chain: seals -> vault -> key -> wicket -> arch
+let muted=false,hasInteracted=false,audio=null,hintTimer=0,afterWalk=null;
+function reset(){actor=[...START];crates=CRATES_START.map(p=>[...p]);history=[];pending=[];tween=null;facing='walk_right';moves=0;pushes=0;
+ sealedAt=0;keyOut=false;hasKey=false;unlockAt=0;exitWalk=null;finished=false;afterWalk=null;invEl.classList.remove('has');ending.classList.remove('show');}
+reset();
 const crateAt=(x,y)=>crates.findIndex(b=>b[0]===x&&b[1]===y);
-function message(s,duration=3100){hint.textContent=s;hint.classList.add('show');clearTimeout(hintTimer);hintTimer=setTimeout(()=>hint.classList.remove('show'),duration);}
-function sound(){hasInteracted=true;
- try{if(!audioContext)audioContext=new (window.AudioContext||window.webkitAudioContext)();audioContext.resume?.();}catch(e){}
- if(!muted&&!gateOpen&&ambient.paused)ambient.play().catch(()=>{});
-}
-function beep(f=130,time=.1,v=.035,type='triangle'){
- if(!audioContext||muted)return;
- const t=audioContext.currentTime,o=audioContext.createOscillator(),gain=audioContext.createGain();
- o.type=type;o.frequency.value=f;gain.gain.setValueAtTime(v,t);gain.gain.exponentialRampToValueAtTime(.0001,t+time);
- o.connect(gain).connect(audioContext.destination);o.start(t);o.stop(t+time);
-}
-function saved(){try{localStorage.setItem('darkness_cellar_v10',JSON.stringify({actor,crates,moves,pushes,gateOpen,finished}));}catch(e){}}
+const sealed=()=>sealedAt!==0;
+function message(s,duration=3400){hint.textContent=s;hint.classList.add('show');clearTimeout(hintTimer);hintTimer=setTimeout(()=>hint.classList.remove('show'),duration);}
+function save(){try{localStorage.setItem(SAVE,JSON.stringify({actor,crates,moves,pushes,sealed:sealed(),hasKey,unlocked:unlockAt>0,finished}));}catch(e){}}
 function restore(){try{
- const a=JSON.parse(localStorage.getItem('darkness_cellar_v10'));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==3)return;
+ const a=JSON.parse(localStorage.getItem(SAVE));if(!a||!Array.isArray(a.actor)||!Array.isArray(a.crates)||a.crates.length!==GOALS.length)return;
  if(!isFloor(...a.actor)||a.crates.some(p=>!Array.isArray(p)||!isFloor(...p)))return;
- const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==3||set.has(k(...a.actor)))return;
+ const set=new Set(a.crates.map(p=>k(...p)));if(set.size!==GOALS.length||set.has(k(...a.actor)))return;
+ if(a.finished||a.unlocked)return;                          // a finished run starts over
  actor=[...a.actor];crates=a.crates.map(p=>[...p]);moves=a.moves|0;pushes=a.pushes|0;
- gateOpen=GOALS.every(p=>set.has(k(...p)));finished=gateOpen&&actor[0]===EXIT[0]&&actor[1]===EXIT[1];
- ending.classList.toggle('show',finished);
- }catch(e){}
-}
-function complete(){gateOpen=true;ambient.pause();victory.currentTime=0; if(!muted)victory.play().catch(()=>{});
- [196,247,294,392,494].forEach((n,i)=>setTimeout(()=>beep(n,.75,.1,'sine'),i*180));
- message('Tři kamenné pečetě zapadly na místo. Dveře na východě se otevírají...',4800);saved();
-}
+ if(a.sealed){sealedAt=-1e9;keyOut=true;hasKey=!!a.hasKey;invEl.classList.toggle('has',hasKey);}
+ }catch(e){}}
+
+// ---- sound ----------------------------------------------------------------------------------
+function wake(){hasInteracted=true;
+ try{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();audio.resume?.();}catch(e){}
+ if(!muted&&!finished&&ambient.paused)ambient.play().catch(()=>{});}
+function tone(f,dur,v=.04,type='sine',when=0,slide=0){if(!audio||muted)return;const t=audio.currentTime+when,o=audio.createOscillator(),g=audio.createGain();
+ o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur+.02);}
+let noiseBuf=null;
+function noise(dur,v,freq,q=1,type='bandpass',when=0){if(!audio||muted)return;
+ if(!noiseBuf){noiseBuf=audio.createBuffer(1,audio.sampleRate*2,audio.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;}
+ const t=audio.currentTime+when,s=audio.createBufferSource(),f=audio.createBiquadFilter(),g=audio.createGain();s.buffer=noiseBuf;s.loop=true;f.type=type;f.frequency.value=freq;f.Q.value=q;
+ g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f).connect(g).connect(audio.destination);s.start(t,Math.random());s.stop(t+dur+.05);}
+const sfx={
+ step(){noise(.05,.02,900,1.2);},
+ bump(){tone(84,.11,.05,'triangle');},
+ scrape(){noise(.24,.09,260,.9);noise(.2,.03,1400,2);},                        // wood dragged over stone
+ seal(){tone(98,.5,.09,'sine');tone(392,.6,.03,'triangle',.03);noise(.12,.06,180,.8);},
+ vault(){noise(1.5,.13,90,.7,'lowpass');for(let i=0;i<9;i++)noise(.05,.05,2600,6,'bandpass',.12+i*.13);tone(55,1.4,.07,'sine',0,.8);},
+ key(){[1760,2637,3520,5274].forEach((f,i)=>tone(f,1.1-i*.15,.05/(i+1),'sine',i*.035));tone(2217,.9,.02,'triangle',.11);noise(.03,.05,6000,3);}, // bright metallic chime
+ unlock(){noise(.04,.1,3200,4);noise(.05,.09,1800,3,'bandpass',.13);tone(140,.25,.05,'square',.2,.6);noise(.7,.07,420,1.5,'bandpass',.3);}
+};
+
+// ---- rules ----------------------------------------------------------------------------------
+function checkSeals(){if(sealed()||!GOALS.every(([x,y])=>crateAt(x,y)!==-1))return;
+ sealedAt=performance.now();sfx.vault();
+ message('Všechny pečetě zapadly. Hluboko dole se s rachotem zvedá mříž… a z temnoty vyplouvá klíč.',5600);}
 function makeMove(dx,dy){
- if(finished||tween)return false;
- const nx=actor[0]+dx,ny=actor[1]+dy;
- if(!isFloor(nx,ny))return false;
- const boxIndex=crateAt(nx,ny);let boxMove=null;
- if(boxIndex!==-1){const bx=nx+dx,by=ny+dy;if(!isFloor(bx,by)||crateAt(bx,by)!==-1)return false;
-  boxMove={i:boxIndex,from:[...crates[boxIndex]],to:[bx,by]};
- }
- if(nx===EXIT[0]&&ny===EXIT[1]&&!gateOpen){message('Za mříží není průchod. Staré kamenné pečetě ještě nedosedly.');return false;}
- history.push({actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,gateOpen});if(history.length>700)history.shift();
+ if(finished||tween||exitWalk||unlockAt)return false;
+ if(actor[0]===GATE_STAND[0]&&actor[1]===GATE_STAND[1]&&dx===0&&dy===1){tryGate();return true;}
+ if(!canStep(actor[0],actor[1],dx,dy))return false;
+ const nx=actor[0]+dx,ny=actor[1]+dy,bi=crateAt(nx,ny);let boxMove=null;
+ if(bi!==-1){if(!canStep(nx,ny,dx,dy)||crateAt(nx+dx,ny+dy)!==-1)return false;boxMove={i:bi,from:[nx,ny],to:[nx+dx,ny+dy]};}
+ history.push({actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes});if(history.length>900)history.shift();
  const prev=[...actor];actor=[nx,ny];moves++;
- if(boxMove){crates[boxIndex]=boxMove.to;pushes++;beep(74,.26,.08,'sawtooth');}
- else beep(122,.048,.023);
- facing=(dy-dx)>=0?'walk_right':'walk_left';
- tween={from:prev,to:[...actor],boxMove,started:performance.now(),duration:boxMove?210:135};
- if(!gateOpen&&GOALS.every(([x,y])=>crateAt(x,y)!==-1))complete();
- saved();return true;
+ if(boxMove){crates[bi]=boxMove.to;pushes++;sfx.scrape();if(GOALS.some(g=>g[0]===boxMove.to[0]&&g[1]===boxMove.to[1]))setTimeout(sfx.seal,170);}else sfx.step();
+ if(dy-dx!==0)facing=(dy-dx)>0?'walk_right':'walk_left';
+ tween={from:prev,to:[...actor],boxMove,started:performance.now(),duration:boxMove?240:150};
+ checkSeals();save();return true;
 }
-function undo(){if(history.length===0)return;
- pending=[];tween=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;
- gateOpen=a.gateOpen;finished=false;ending.classList.remove('show');victory.pause();victory.currentTime=0;
- if(hasInteracted&&!muted&&!gateOpen)ambient.play().catch(()=>{});beep(180,.13,.04);saved();
+function arrived(){                                           // called when a step has finished
+ if(keyOut&&!hasKey&&actor[0]===KEY_CELL[0]&&actor[1]===KEY_CELL[1]){hasKey=true;invEl.classList.add('has');sfx.key();save();
+  message('Mosazný klíč! Je studený a těžký. Někde tu k němu musí být zámek.',4600);}
+ if(!pending.length&&afterWalk){const f=afterWalk;afterWalk=null;f();}
 }
-function restart(){pending=[];tween=null;history=[];actor=[...PLAYER_START];crates=CRATES_START.map(p=>[...p]);moves=0;pushes=0;gateOpen=false;finished=false;
- ending.classList.remove('show');victory.pause();victory.currentTime=0;
- if(hasInteracted&&!muted){ambient.currentTime=0;ambient.play().catch(()=>{});}saved();message('Kamenné bloky se vrátily na své místo.');
+function tryGate(){
+ if(unlockAt||finished)return;
+ if(!hasKey){sfx.bump();message(sealed()?'Mříž je zamčená těžkým zámkem. Klíč na mě čeká dole u pečetí.':'Mříž je zamčená těžkým zámkem. Bez klíče se nepohne.');return;}
+ unlockAt=performance.now();hasKey=false;invEl.classList.remove('has');sfx.unlock();pending=[];
+ message('Klíč se v zámku pootočil. Mříž klesá do podlahy.',3800);save();
+ const path=[[0.5,8.5],[0.5,9.5],inv(940,256),inv(948,216),inv(958,180)];
+ setTimeout(()=>{exitWalk={pts:[[actor[0]+.5,actor[1]+.5],...path],started:performance.now(),seg:330};facing='walk_right';},820);
 }
-function shortestWalk(to){
+function undo(){if(!history.length||finished||exitWalk||unlockAt)return;pending=[];tween=null;afterWalk=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;tone(180,.12,.035,'triangle');save();}
+function restart(){wake();reset();victory.pause();victory.currentTime=0;if(!muted){ambient.play().catch(()=>{});}tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
+function walkTo(to){
  if(!isFloor(...to)||crateAt(...to)!==-1)return null;
  const src=k(...actor),dst=k(...to),q=[[...actor]],via=new Map([[src,null]]);
- for(let j=0;j<q.length;j++){
-  const [x,y]=q[j];if(k(x,y)===dst)break;
-  for(const [dx,dy] of DELTAS){const tx=x+dx,ty=y+dy,z=k(tx,ty);
-   if(!isFloor(tx,ty)||crateAt(tx,ty)!==-1||via.has(z)||(!gateOpen&&tx===EXIT[0]&&ty===EXIT[1]))continue;
-   via.set(z,{from:k(x,y),delta:[dx,dy]});q.push([tx,ty]);
-  }
- }
- if(!via.has(dst))return null;
- const a=[];let p=dst;while(p!==src){const f=via.get(p);a.unshift(f.delta);p=f.from;}return a;
+ for(let j=0;j<q.length;j++){const [x,y]=q[j];if(k(x,y)===dst)break;
+  for(const [dx,dy] of DELTAS){const z=k(x+dx,y+dy);if(!canStep(x,y,dx,dy)||crateAt(x+dx,y+dy)!==-1||via.has(z))continue;via.set(z,{from:k(x,y),delta:[dx,dy]});q.push([x+dx,y+dy]);}}
+ if(!via.has(dst))return null;const a=[];let p=dst;while(p!==src){const f=via.get(p);a.unshift(f.delta);p=f.from;}return a;
 }
-function queue(dx,dy){if(finished)return;sound();
- if(tween){if(pending.length<5)pending.push([dx,dy]);}
- else if(pending.length){pending.push([dx,dy]);}
- else {if(!makeMove(dx,dy))beep(91,.10,.03);}
-}
-function onClick(ev){if(finished)return;sound();
+function queue(dx,dy){if(finished)return;wake();afterWalk=null;
+ if(tween||pending.length){if(pending.length<4)pending.push([dx,dy]);}else if(!makeMove(dx,dy))sfx.bump();}
+function goGate(){const route=walkTo(GATE_STAND);
+ if(actor[0]===GATE_STAND[0]&&actor[1]===GATE_STAND[1])tryGate();else if(route){pending=route;afterWalk=tryGate;}else message('K mříži se teď nedostanu.');}
+function onClick(ev){if(finished||exitWalk||unlockAt)return;wake();afterWalk=null;
  const r=canvas.getBoundingClientRect(),sx=(ev.clientX-r.left)/r.width*1085,sy=(ev.clientY-r.top)/r.height*566;
- // The illustrated barred gate at the front of the room is the destination.
- // Clicking directly on it is equivalent to clicking the exit tile on the map.
- if(sx>=400 && sx<=575 && sy>=420 && sy<=530){
-   if(!gateOpen){message('Dveře zatím drží. Nejprve musí zapadnout všechny tři pečetě.');return;}
-   const route=shortestWalk(EXIT);
-   if(route)pending=route;
-   return;
- }
- // Actual isometric hit test, including tall crates (their sprites extend above the tile).
- let best=-1,score=Infinity;
- for(let i=0;i<crates.length;i++){const p=at(...crates[i]),dx=(sx-p.x)/30,dy=(sy-(p.y-20))/37;
-  if(Math.abs(dx)<1.1&&Math.abs(dy)<1.2&&dx*dx+dy*dy<score){score=dx*dx+dy*dy;best=i;}
- }
- if(best>=0){const b=crates[best];let candidate=null;
-  for(const [dx,dy] of DELTAS){const to=[b[0]+dx,b[1]+dy],stand=[b[0]-dx,b[1]-dy];
-   if(!isFloor(...to)||crateAt(...to)!==-1)continue;
-   const route=shortestWalk(stand);if(route!==null&&(!candidate||route.length<candidate.length))candidate=[...route,[dx,dy]];
-  }
-  if(candidate){pending=candidate;} else message('Z této strany bednu nelze posunout.');return;
- }
- const u=(sx-OX)/HW,v=(sy-OY)/HH;const x=Math.round((v-u)/2),y=Math.round((v+u)/2);
- if(!isFloor(x,y))return;const p=at(x,y);if(Math.abs(sx-p.x)/HW+Math.abs(sy-p.y)/HH>1.35)return;
- const route=shortestWalk([x,y]);if(route)pending=route;
+ if(sx>=838&&sx<=892&&sy>=172&&sy<=266){goGate();return;}                      // the wicket gate by the arch
+ if(ctx.isPointInPath(vaultPath,sx,sy)){message(sealed()?'Mříž sklepní kobky je zvednutá. Za ní je jen tma a vlhko.':'Těžká mříž. Nahoře nad ní jsou do dlažby vsazené kamenné pečetě.');return;}
+ // crates first (their sprites stand taller than the tile), front-most wins
+ let best=-1,bd=-1;for(let i=0;i<crates.length;i++){const p=cen(...crates[i]);if(sx>p.x-28&&sx<p.x+28&&sy>p.y-50&&sy<p.y+19&&crates[i][0]+crates[i][1]>bd){bd=crates[i][0]+crates[i][1];best=i;}}
+ if(best>=0){const b=crates[best],dx=b[0]-actor[0],dy=b[1]-actor[1];
+  if(Math.abs(dx)+Math.abs(dy)===1){pending=[[dx,dy]];return;}             // standing next to it: push it away
+  let route=null;for(const [ex,ey] of DELTAS){const r2=walkTo([b[0]+ex,b[1]+ey]);if(r2&&(!route||r2.length<route.length))route=r2;}
+  if(route)pending=route;else message('K té bedně se odsud nedostanu.');return;}
+ const [c,rr]=inv(sx,sy),x=Math.floor(c),y=Math.floor(rr);if(!isFloor(x,y))return;
+ const route=walkTo([x,y]);if(route)pending=route;
 }
 canvas.addEventListener('pointerdown',onClick);
 document.addEventListener('keydown',ev=>{
- const keys={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowUp:[-1,0],ArrowDown:[1,0],d:[0,1],a:[0,-1],w:[-1,0],s:[1,0],D:[0,1],A:[0,-1],W:[-1,0],S:[1,0]};
- if(keys[ev.key]){ev.preventDefault();queue(...keys[ev.key]);}
- else if(ev.key.toLowerCase()==='z'){ev.preventDefault();undo();}
- else if(ev.key.toLowerCase()==='r'){ev.preventDefault();restart();}
+ const keys={ArrowRight:[0,1],ArrowLeft:[0,-1],ArrowUp:[-1,0],ArrowDown:[1,0],d:[0,1],a:[0,-1],w:[-1,0],s:[1,0]};const key=ev.key.length===1?ev.key.toLowerCase():ev.key;
+ if(keys[key]){ev.preventDefault();queue(...keys[key]);}
+ else if(key==='z'||key==='Backspace'){ev.preventDefault();undo();}
+ else if(key==='r'){ev.preventDefault();restart();}
+ else if(key==='m'){muted=!muted;ambient.muted=victory.muted=muted;}
 });
-document.querySelectorAll('[data-dx]').forEach(el=>el.addEventListener('click',()=>queue(Number(el.dataset.dx),Number(el.dataset.dy))));
-document.querySelector('#undo').onclick=undo;document.querySelector('#restart').onclick=restart;
-document.querySelector('#back').onclick=()=>{window.location.href='index.html';};
-document.querySelector('#mute').onclick=()=>{muted=!muted;ambient.muted=muted;victory.muted=muted;
- document.querySelector('#mute').style.opacity=muted?'.4':'1';if(!muted){sound();(gateOpen?victory:ambient).play().catch(()=>{});}
-};
+document.querySelector('#restart').onclick=restart;
+
+// ---- drawing --------------------------------------------------------------------------------
+const vaultPath=new Path2D();VAULT.forEach((p,i)=>i?vaultPath.lineTo(p[0],p[1]):vaultPath.moveTo(p[0],p[1]));vaultPath.closePath();
+const ease=t=>t*t*(3-2*t);
+function paintScene(now){                                     // the painting + the vault grate rising out of the way
+ if(ready(bg))sctx.drawImage(bg,0,0,1085,566);else{sctx.fillStyle='#1b1519';sctx.fillRect(0,0,1085,566);}
+ if(!sealed()||!ready(bg))return;
+ const p=Math.min(1,(now-sealedAt)/1300),e=ease(p);
+ sctx.save();sctx.clip(vaultPath);sctx.fillStyle='#050304';sctx.fillRect(440,430,90,120);
+ const g=sctx.createRadialGradient(484,516,2,484,516,44);g.addColorStop(0,`rgba(255,160,64,${.2*e})`);g.addColorStop(1,'rgba(255,150,60,0)');sctx.fillStyle=g;sctx.fillRect(440,430,90,120);
+ if(p<1)sctx.drawImage(bg,440,430,90,120,440,430-e*96,90,120);
+ sctx.restore();
+}
+function occlude(lx,ly,bx,by,bw,bh){                          // redraw every wall that stands in front of lattice point (lx,ly)
+ for(const w of WALLS){if(lx>=w.box[1]-.001||ly>=w.box[3]-.001)continue;
+  if(bx>w.x1||bx+bw<w.x0||by>w.y1||by+bh<w.y0)continue;
+  ctx.save();ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.clip();ctx.clip(w.path);ctx.drawImage(scene,0,0);ctx.restore();}
+}
+function diamond(x,y,hw,hh){ctx.beginPath();ctx.moveTo(x,y-hh);ctx.lineTo(x+hw,y);ctx.lineTo(x,y+hh);ctx.lineTo(x-hw,y);ctx.closePath();}
+function drawSeal(gx,gy,now){const p=cen(gx,gy),on=crateAt(gx,gy)!==-1,pulse=.5+.5*Math.sin(now/520+gx*1.7+gy);
+ ctx.save();ctx.lineJoin='miter';
+ ctx.globalAlpha=on?.95:.5+.22*pulse;ctx.strokeStyle=on?'#ffd27a':'#b98a48';ctx.lineWidth=2;diamond(p.x,p.y,29,14.8);ctx.stroke();
+ ctx.globalAlpha*=.8;ctx.lineWidth=1;diamond(p.x,p.y,21,10.7);ctx.stroke();
+ ctx.fillStyle=on?'#ffd27a':'#b98a48';for(const [ax,ay] of [[0,-6],[11,0],[0,6],[-11,0],[0,0]])ctx.fillRect(Math.round(p.x+ax)-1,Math.round(p.y+ay)-1,2,2);
+ if(on){ctx.globalAlpha=.16;ctx.fillStyle='#ffc060';diamond(p.x,p.y,29,14.8);ctx.fill();}
+ ctx.restore();occlude(gx+.5,gy+.5,p.x-31,p.y-17,62,34);
+}
+function drawKey(x,y,now,scale=1){if(!ready(keyImg))return;const h=30*scale,w=h*keyImg.naturalWidth/keyImg.naturalHeight;
+ const g=ctx.createRadialGradient(x,y,1,x,y,26*scale);g.addColorStop(0,'rgba(255,214,120,.5)');g.addColorStop(1,'rgba(255,190,90,0)');ctx.fillStyle=g;ctx.fillRect(x-28*scale,y-28*scale,56*scale,56*scale);
+ ctx.save();ctx.translate(x,y);ctx.rotate(.5+Math.sin(now/700)*.12);ctx.drawImage(keyImg,-w/2,-h/2,w,h);ctx.restore();
+ if(Math.floor(now/90)%14===0){ctx.fillStyle='#fff6d0';ctx.fillRect(Math.round(x+6),Math.round(y-9),2,2);}
+}
 function frame(now){
- ctx.clearRect(0,0,1085,566);
- if(bg.complete&&bg.naturalWidth)ctx.drawImage(bg,0,0,1085,566);
- else{ctx.fillStyle='#1b1519';ctx.fillRect(0,0,1085,566);}
- // Drawn goal sigils (never baked into the scene art) mark the sockets;
- // each ring glows warmer once its crate has been pushed onto it.
- for(const [gx,gy] of GOALS){
-  const p=at(gx,gy),filled=crateAt(gx,gy)!==-1,pulse=.55+.25*Math.sin(now/420+gx+gy);
-  ctx.save();ctx.globalAlpha=filled?.85:.4+.15*pulse;
-  ctx.strokeStyle=filled?'#f0c878':'#8a6a3c';ctx.lineWidth=filled?3:2;
-  ctx.beginPath();ctx.ellipse(p.x,p.y+6,22,10,0,0,Math.PI*2);ctx.stroke();
-  ctx.beginPath();ctx.ellipse(p.x,p.y+6,13,6,0,0,Math.PI*2);ctx.stroke();
-  ctx.restore();
- }
- let px=actor[0],py=actor[1],walk=false;
- if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=t*t*(3-2*t);
-  px=tween.from[0]+(tween.to[0]-tween.from[0])*u;
-  py=tween.from[1]+(tween.to[1]-tween.from[1])*u;walk=t<1;
-  if(t>=1){tween=null;if(gateOpen&&actor[0]===EXIT[0]&&actor[1]===EXIT[1]&&!finished){finished=true;ending.classList.add('show');saved();}}
- }
+ // --- advance animations
+ let hx=actor[0],hy=actor[1],walking=false,alpha=1;
+ if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6;
+  hx=tween.from[0]+(tween.to[0]-tween.from[0])*u;hy=tween.from[1]+(tween.to[1]-tween.from[1])*u;walking=true;
+  if(t>=1){tween=null;hx=actor[0];hy=actor[1];arrived();}}
+ if(sealed()&&!keyOut&&now-sealedAt>2700)keyOut=true;
+ let lx=hx+.5,ly=hy+.5;
+ if(exitWalk){const f=(now-exitWalk.started)/exitWalk.seg,i=Math.min(exitWalk.pts.length-2,Math.floor(f)),u=Math.min(1,f-i),a=exitWalk.pts[i],b=exitWalk.pts[i+1];
+  lx=a[0]+(b[0]-a[0])*u;ly=a[1]+(b[1]-a[1])*u;walking=true;if(i===exitWalk.pts.length-2)alpha=1-u;
+  if(f>=exitWalk.pts.length-1&&!finished){finished=true;ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}ending.classList.add('show');save();}}
+ // --- scene
+ paintScene(now);ctx.drawImage(scene,0,0);
+ for(const [gx,gy] of GOALS)drawSeal(gx,gy,now);
+ // --- everything that stands on the floor, back to front
  const objs=[];
- for(let i=0;i<crates.length;i++){
-  let x=crates[i][0],y=crates[i][1];if(tween?.boxMove?.i===i){const a=tween.boxMove,t=Math.min(1,(now-tween.started)/tween.duration),u=t*t*(3-2*t);
-   x=a.from[0]+(a.to[0]-a.from[0])*u;y=a.from[1]+(a.to[1]-a.from[1])*u;
-  }objs.push({type:'crate',x,y,depth:x+y+.03});
- }
- if(!finished)objs.push({type:'hero',x:px,y:py,depth:px+py+.12});objs.sort((a,b)=>a.depth-b.depth);
- for(const o of objs){const p=at(o.x,o.y);
+ for(let i=0;i<crates.length;i++){let x=crates[i][0],y=crates[i][1];
+  if(tween?.boxMove?.i===i){const a=tween.boxMove,t=Math.min(1,(now-tween.started)/tween.duration);x=a.from[0]+(a.to[0]-a.from[0])*t;y=a.from[1]+(a.to[1]-a.from[1])*t;}
+  objs.push({type:'crate',lx:x+.5,ly:y+.5,depth:x+y});}
+ if(!finished)objs.push({type:'hero',lx,ly,depth:lx+ly-1+.1});
+ if(keyOut&&!hasKey&&!unlockAt&&!exitWalk&&!finished)objs.push({type:'key',lx:KEY_CELL[0]+.5,ly:KEY_CELL[1]+.5,depth:KEY_CELL[0]+KEY_CELL[1]+.05});
+ const wq=unlockAt?Math.min(1,(now-unlockAt)/780):0;
+ if(wq<1)objs.push({type:'wicket',depth:WICKET.depth});
+ objs.sort((a,b)=>a.depth-b.depth);
+ for(const o of objs){
+  if(o.type==='wicket'){if(!ready(gateImg))continue;ctx.save();ctx.beginPath();ctx.moveTo(840,140);ctx.lineTo(890,140);ctx.lineTo(890,WICKET.line(890)+1);ctx.lineTo(840,WICKET.line(840)+1);ctx.closePath();ctx.clip();
+   ctx.drawImage(gateImg,WICKET.x,WICKET.y+ease(wq)*62);ctx.restore();continue;}
+  const p=P(o.lx,o.ly);
   if(o.type==='crate'){
-   ctx.fillStyle='rgba(0,0,0,.40)';ctx.beginPath();ctx.ellipse(p.x,p.y+8,27,8,0,0,Math.PI*2);ctx.fill();
-   if(crateImg.complete&&crateImg.naturalWidth)ctx.drawImage(crateImg,p.x-31,p.y-57,62,63);
-  }else{
-   ctx.fillStyle='rgba(0,0,0,.40)';ctx.beginPath();ctx.ellipse(p.x,p.y+7,15,6,0,0,Math.PI*2);ctx.fill();
-   const img=walk?heroFrames[facing+(Math.floor(now/155)%10)]:heroFrames.idle;
-   if(img?.complete&&img.naturalWidth){const h=76,w=h*img.naturalWidth/img.naturalHeight;ctx.drawImage(img,p.x-w/2,p.y-h+9,w,h);}
-   else {ctx.fillStyle='#513b40';ctx.fillRect(p.x-10,p.y-40,20,40);}
-  }
+   ctx.fillStyle='rgba(0,0,0,.28)';diamond(p.x+3,p.y+2,34,17.5);ctx.fill();ctx.fillStyle='rgba(0,0,0,.34)';diamond(p.x+1,p.y+1,30,15.5);ctx.fill();
+   if(ready(crateImg))ctx.drawImage(crateImg,p.x-27.6,p.y-49.6,55.2,68);
+   occlude(o.lx,o.ly,p.x-38,p.y-52,76,74);
+  }else if(o.type==='hero'){
+   ctx.save();ctx.globalAlpha=alpha;
+   ctx.fillStyle='rgba(0,0,0,.4)';ctx.beginPath();ctx.ellipse(p.x,p.y+3,15,6.5,0,0,Math.PI*2);ctx.fill();
+   const im=walking?heroFrames[facing+(Math.floor(now/110)%10)]:heroFrames.idle,h=78;
+   if(ready(im)){const w=h*im.naturalWidth/im.naturalHeight;ctx.drawImage(im,p.x-w/2,p.y+5-h*.991,w,h);}
+   ctx.restore();occlude(o.lx,o.ly,p.x-34,p.y-78,68,90);
+  }else{const b=Math.sin(now/480)*3;drawKey(p.x,p.y-30+b,now);occlude(o.lx,o.ly,p.x-30,p.y-62,60,66);}
  }
- // One rendered exit, shown open only after placing all five crates.
- if(gateOpen&&!finished){const p=at(...EXIT);ctx.fillStyle='rgba(198,138,72,.11)';ctx.beginPath();ctx.ellipse(p.x,p.y-5,33,21,0,0,Math.PI*2);ctx.fill();}
- if(!tween&&pending.length&&!finished){const next=pending.shift();if(!makeMove(...next)){pending=[];beep(91,.1,.035);}}
+ // the key drifting up out of the opened vault, over the parapet, to its tile
+ if(sealed()&&!keyOut){const t=(now-sealedAt-1300)/1400;if(t>0){const e=ease(Math.min(1,t)),d=cen(...KEY_CELL);drawKey(486+(d.x-486)*e,505+(d.y-30-505)*e-Math.sin(e*Math.PI)*14,now,.6+.4*e);}}
+ if(!tween&&pending.length&&!finished&&!exitWalk&&!unlockAt){const next=pending.shift();if(!makeMove(...next)){pending=[];afterWalk=null;sfx.bump();}}
+ else if(!tween&&!pending.length&&afterWalk){const f=afterWalk;afterWalk=null;f();}
  requestAnimationFrame(frame);
 }
+window.__cellar={get state(){return {actor:[...actor],crates:crates.map(p=>[...p]),moves,pushes,sealed:sealed(),keyOut,hasKey,unlocked:unlockAt>0,finished};}};
 restore();requestAnimationFrame(frame);
 })();
 </script></body></html>

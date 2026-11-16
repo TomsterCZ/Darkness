@@ -219,7 +219,7 @@ function fadeAudio(el, from, to, durMs) {
   const start = performance.now();
   function step(t) {
     const p = Math.min(1, (t - start) / durMs);
-    el.volume = from + (to - from) * p;
+    el.volume = Math.max(0, Math.min(1, from + (to - from) * p));
     if (p < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
@@ -695,6 +695,8 @@ function drinkPotion() {
   }, 3400);
 }
 
+// Turn the hero toward the object he is about to examine or use (the art faces right; it is mirrored to face left).
+function lookAt(h) { hero.lookX = (h.box[0] + h.box[2]) / 2; }
 function goTo(x, y, onArrive = null) {
   hero.destX = Math.max(80, Math.min(1010, x));
   hero.destY = Math.max(510, Math.min(548, y));
@@ -728,8 +730,8 @@ canvas.addEventListener('click', ev => {
   const onHero = !h && isOnHero(x, y);
   if (onHero && heldItem === 'green_potion') { drinkPotion(); return; }
   if (onHero) { gesture('examine'); examineSelf(); return; }
-  if (h && heldItem) { goTo(h.to[0], h.to[1], () => useItemOn(h.id)); }
-  else if (h) { goTo(h.to[0], h.to[1], () => inspect(h.id)); }
+  if (h && heldItem) { goTo(h.to[0], h.to[1], () => { lookAt(h); useItemOn(h.id); }); }
+  else if (h) { goTo(h.to[0], h.to[1], () => { lookAt(h); inspect(h.id); }); }
   else if (y > 360) { hero.queued = null; heldItem = null; stage.style.cursor = CURSORS.walk; renderInventory(); goTo(x, y); }
   else { /* empty wall/background click: just the sound, no message */ }
 });
@@ -740,7 +742,7 @@ function frame(now) {
   const dx = hero.destX - hero.x, dy = hero.destY - hero.y, dist = Math.hypot(dx, dy);
   if (dist > 1.6) {
     hero.face = dx >= 0 ? 'walk_right' : 'walk_left';
-    hero.action = hero.face;
+    hero.action = hero.face; hero.lookX = null;
     const step = Math.min(dist, 185 * dt);
     hero.x += dx / dist * step; hero.y += dy / dist * step;
     hero.phase += dt * 1000;
@@ -782,7 +784,11 @@ function frame(now) {
   if (img?.complete && img.naturalWidth) {
     const W = img.naturalWidth * 1.20, H = img.naturalHeight * 1.36;
     ctx.imageSmoothingEnabled = false;
+    const walkingNow = hero.action === 'walk_right' || hero.action === 'walk_left';
+    const mirror = !walkingNow && ((hero.lookX != null && Math.abs(hero.lookX - hero.x) > 40) ? hero.lookX < hero.x : hero.face === 'walk_left');
+    if (mirror) { ctx.save(); ctx.translate(Math.round(hero.x) * 2, 0); ctx.scale(-1, 1); }
     ctx.drawImage(img, Math.round(hero.x - W / 2), Math.round(hero.y - H), W, H);
+    if (mirror) ctx.restore();
   }
   if (escaped) {
     ctx.fillStyle = 'rgba(64,151,86,.13)'; ctx.fillRect(870, 55, 208, 446);
