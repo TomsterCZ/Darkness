@@ -63,7 +63,7 @@ function cen(x,y){
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
 // Doorway beyond the northern platform is a scripted threshold, not an
 // extra walkable cell. All regular moves remain on lattice centres.
-const floor=new Set(BOARD.cells.filter(p=>!at(p,PORTAL)).map(p=>k(...p)));
+const floor=new Set(BOARD.cells.filter(p=>p[0]!==PORTAL[0]||p[1]!==PORTAL[1]).map(p=>k(...p)));
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
 const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
