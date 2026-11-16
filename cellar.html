@@ -57,7 +57,12 @@ const OUTER=BOARD.outer||{},PLACE=BOARD.place||{},HERO_ONLY=new Set(BOARD.heroOn
 // floor uses separate hand-aligned positions.
 function cen(x,y){
  const o=OUTER[x+','+y];
- if(o && x>=13)return {x:o[0],y:o[1]};
+ if(o && x>=13){
+  // The three low-ground tiles form their own equally spaced straight
+  // corridor in the painting (a different elevation from the platform).
+  const start=OUTER['13,9'],end=OUTER['15,9'],u=(x-13)/2;
+  return {x:start[0]+(end[0]-start[0])*u,y:start[1]+(end[1]-start[1])*u};
+ }
  return P(x+.5,y+.5);
 }
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
