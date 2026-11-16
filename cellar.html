@@ -10,7 +10,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;touch-acti
 #restart{position:absolute;top:2%;right:1.4%;width:4.4%;aspect-ratio:1;padding:0;border:0;background:url(assets/ui/restart.png) center/100% 100% no-repeat;cursor:pointer;opacity:.82;transition:opacity .15s,transform .08s}
 #restart:hover,#restart:focus-visible{opacity:1;outline:none}#restart:active{transform:translateY(1px) scale(.97)}
 #solve{position:absolute;top:10.5%;right:1.4%;font:11px/1 monospace;padding:4px 6px;color:#e8c478;background:#1e1719;border:2px solid #4a3c38;cursor:pointer;opacity:.75}#solve:hover{opacity:1}
-#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;background:url(assets/ui/slot.png) center/100% 100% no-repeat;display:flex;align-items:center;justify-content:center;opacity:.9}
+#inv{position:absolute;top:2%;left:1.4%;width:5.4%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;pointer-events:none}
 #inv img{height:66%;transform:rotate(38deg) scale(0);transition:transform .35s cubic-bezier(.3,1.6,.5,1);filter:drop-shadow(0 0 3px rgba(255,200,90,.55))}
 #inv.has img{transform:rotate(38deg) scale(1)}
 #hint{position:absolute;top:3.2%;left:14%;right:14%;text-align:center;color:#f1d8a8;font:clamp(13px,2.2vw,23px) Georgia,serif;text-shadow:1px 2px 5px #000,0 0 9px #000;opacity:0;pointer-events:none;transition:opacity .5s}
@@ -107,7 +107,7 @@ function restore(){try{
 // ---- sound ----------------------------------------------------------------------------------
 function wake(){hasInteracted=true;
  try{if(!audio)audio=new (window.AudioContext||window.webkitAudioContext)();audio.resume?.();}catch(e){}
- if(!muted&&!finished&&ambient.paused)ambient.play().catch(()=>{});}
+ const tune=sealedAt!==0?victory:ambient;if(!muted&&tune.paused)tune.play().catch(()=>{});}
 function tone(f,dur,v=.04,type='sine',when=0,slide=0){if(!audio||muted)return;const t=audio.currentTime+when,o=audio.createOscillator(),g=audio.createGain();
  o.type=type;o.frequency.setValueAtTime(f,t);if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,f*slide),t+dur);
  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v,t+.008);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audio.destination);o.start(t);o.stop(t+dur+.02);}
@@ -128,7 +128,7 @@ const sfx={
 
 // ---- rules ----------------------------------------------------------------------------------
 function checkSeals(){if(sealed()||!GOALS.every(([x,y])=>crateAt(x,y)!==-1))return;
- sealedAt=performance.now();sfx.vault();
+ sealedAt=performance.now();sfx.vault();ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}
  message('Všechny pečetě zapadly. Dole pod plošinou se s rachotem zvedá mříž.',5200);}
 function makeMove(dx,dy){
  if(finished||tween||exitWalk)return false;
@@ -153,7 +153,7 @@ function arrived(){                                           // called when a s
    const a=cen(...actor);setTimeout(()=>{exitWalk={from:[a.x,a.y],to:[958,184],started:performance.now(),duration:900};facing='walk_right';},650);}}
 }
 function undo(){if(!history.length||finished||exitWalk)return;pending=[];tween=null;const a=history.pop();actor=a.actor;crates=a.crates;moves=a.moves;pushes=a.pushes;tone(180,.12,.035,'triangle');save();}
-function restart(){wake();reset();victory.pause();victory.currentTime=0;if(!muted){ambient.play().catch(()=>{});}tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
+function restart(){reset();victory.pause();victory.currentTime=0;wake();tone(220,.12,.04,'triangle');tone(165,.18,.04,'triangle',.09);save();message('Bedny i mříže jsou zpátky na svých místech.');}
 function walkTo(to){
  if(!isFloor(...to)||crateAt(...to)!==-1)return null;
  const src=k(...actor),dst=k(...to),q=[[...actor]],via=new Map([[src,null]]);
@@ -231,7 +231,7 @@ function frame(now){
   if(tween.through){const first=t<.5;hp=first?a:b;lx=(first?tween.from:tween.to)[0]+.5;ly=(first?tween.from:tween.to)[1]+.5;alpha=Math.abs(1-2*t);walking=false;}
   if(t>=1){tween=null;hp=cen(...actor);lx=actor[0]+.5;ly=actor[1]+.5;if(!pending.length)walking=false;arrived();}}
  if(exitWalk){const u=Math.min(1,(now-exitWalk.started)/exitWalk.duration);hp={x:exitWalk.from[0]+(exitWalk.to[0]-exitWalk.from[0])*u,y:exitWalk.from[1]+(exitWalk.to[1]-exitWalk.from[1])*u};walking=true;alpha=1-u;
-  if(u>=1&&!finished){finished=true;ambient.pause();if(!muted){victory.currentTime=0;victory.play().catch(()=>{});}ending.classList.add('show');save();}}
+  if(u>=1&&!finished){finished=true;ending.classList.add('show');save();}}
  // --- scene
  paintScene(now);ctx.drawImage(scene,0,0);
  for(const [gx,gy] of GOALS)drawSeal(gx,gy,now);
