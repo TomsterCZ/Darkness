@@ -69,7 +69,7 @@ const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
 const isFloor=(x,y)=>floor.has(k(x,y));
 const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
-if(![START,GATE_TOP,GATE_LOW,NORTH_STEP,PORTAL,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
+if(![START,GATE_TOP,GATE_LOW,NORTH_STEP,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
 const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
 // Where a step in direction (dx,dy) leads, or null. Once the gate is raised, stepping "into" the parapet
 // above it takes the hero down through the gate to the low ground, and back again.
