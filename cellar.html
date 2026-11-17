@@ -68,21 +68,40 @@ function cen(x,y){
 const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
 // Doorway beyond the northern platform is a scripted threshold, not an
 // extra walkable cell. All regular moves remain on lattice centres.
-const floor=new Set(BOARD.cells.filter(p=>p[0]!==PORTAL[0]||p[1]!==PORTAL[1]).map(p=>k(...p)));
+// floor is derived below from the rendered wall footprints.
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
-// Foreground occlusion needs only vertical WALL FACES. The original broad
-// hulls included the horizontal top/ground lip, causing the *floor* to slice
-// through the cloak. Keep the masonry face behind the top lip instead.
+// A wall is a solid prism, not a floor tile. The six-point hull is its
+// projected SILHOUETTE, including the horizontal stone cap. Construct the
+// two vertical side faces explicitly; never repaint the stone cap over a
+// character. Let the original background supply the correct pixel texture.
+function insidePolygon(p,poly){
+ let odd=false;
+ for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const a=poly[i],b=poly[j];
+  if((a[1]>p.y)!==(b[1]>p.y) &&
+     p.x<(b[0]-a[0])*(p.y-a[1])/(b[1]-a[1])+a[0])odd=!odd;
+ }
+ return odd;
+}
+const INNER_WALLS=BOARD.walls.filter(w=>['W2','W3','WM'].includes(w.n));
+// These are the internal dividers. Their painted vertical faces physically
+// occupy a few cells that the old navigation grid erroneously called floor.
+// The front perimeter/parapet is different: paths behind it are intentional.
+const WALL_OCCUPIED=new Set(BOARD.cells.filter(([x,y])=>
+  x>=0&&y>=0&&x<=11&&y<=10&&INNER_WALLS.some(w=>
+    insidePolygon(cen(x,y),w.hull))).map(p=>k(...p)));
+// The visible stone footprint is the collision source of truth.
+const floor=new Set(BOARD.cells.filter(p=>
+ (p[0]!==PORTAL[0]||p[1]!==PORTAL[1])&&!WALL_OCCUPIED.has(k(...p))).map(p=>k(...p)));
 const WALLS=BOARD.walls.map(w=>{
- const hull=w.hull;
- const face=new Path2D();
- // Hull: top edge p0,p1,p2, then lower edge p3,p4,p5.
- // Trim six pixels off the top cap; the wall face below is what occludes.
- const points=hull.map((p,i)=>[p[0],p[1]+(i<3?7:0)]);
- points.forEach((p,i)=>i?face.lineTo(p[0],p[1]):face.moveTo(p[0],p[1]));
- face.closePath();
- const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
- return {box:w.box,path:face,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};
+ const h=w.hull,frontCorner=[h[0][0]+h[2][0]-h[1][0],h[0][1]+h[2][1]-h[1][1]];
+ // p0 -> frontCorner -> p2 describes the two visible top edges.
+ // p3,p4,p5 are their matching lower edges. No top-face pixels are
+ // allowed in the occlusion mask.
+ const pts=[h[0],frontCorner,h[2],h[3],h[4],h[5]];
+ const face=new Path2D();pts.forEach((p,i)=>i?face.lineTo(p[0],p[1]):face.moveTo(p[0],p[1]));face.closePath();
+ const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
+ return {name:w.n,box:w.box,path:face,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};
 });
 const isFloor=(x,y)=>floor.has(k(x,y));
 // The movement graph is the collision authority: only connected lattice cells
