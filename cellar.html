@@ -42,7 +42,7 @@ const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,45
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 const scene=document.createElement('canvas');scene.width=1085;scene.height=566;const sctx=scene.getContext('2d');sctx.imageSmoothingEnabled=false;
 const img=src=>{const i=new Image();i.src=src;return i;};
-const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png'),gateArt=img('assets/props/dungeon_gate_atlas.png');
+const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png'),gateArt=img('assets/props/dungeon_gate_art_v2.webp');
 const heroFrames={idle:img('assets/character/idle/00.png')};
 for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)heroFrames[dir+i]=img('assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
 const ready=i=>i.complete&&i.naturalWidth>0;
@@ -290,7 +290,7 @@ function drawNorthernDoor(c,now) {
  if(q<1 && ready(gateArt)) {
   // Actual pixel-art plank-and-iron door: hinge on the LEFT long jamb.
   c.save();c.translate(913,0);c.transform(1-.96*q,0,-.06*q,1,0,0);
-  c.drawImage(gateArt,0,0,32,47,0,105,79,118);
+  c.drawImage(gateArt,6,13,72,133,0,105,80,118);
   c.restore();
  } else if(q<1) {
   c.fillStyle='#553527';c.fillRect(914,119,(77*(1-q))|0,103);
@@ -313,7 +313,7 @@ function drawSouthernGate(c,now) {
  }
  if(p<1) {
   c.save();c.translate(0,-p*114);
-  if(ready(gateArt))c.drawImage(gateArt,33,8,24,34,454,446,66,96);
+  if(ready(gateArt))c.drawImage(gateArt,105,30,73,103,454,445,66,97);
   else {
    // Loading fallback; replaced with the hand-painted gate once loaded.
    c.fillStyle='#7e6050';
