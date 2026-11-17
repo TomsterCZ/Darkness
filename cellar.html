@@ -42,7 +42,7 @@ const VAULT=[[454,512],[454,462],[458,450],[468,443],[482,442],[497,448],[508,45
 const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;
 const scene=document.createElement('canvas');scene.width=1085;scene.height=566;const sctx=scene.getContext('2d');sctx.imageSmoothingEnabled=false;
 const img=src=>{const i=new Image();i.src=src;return i;};
-const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png');
+const bg=img('assets/scene/cellar_scene_gate.png'),crateImg=img('assets/props/crate_pixel.png'),gateArt=img('assets/props/dungeon_gate_atlas.png');
 const heroFrames={idle:img('assets/character/idle/00.png')};
 for(const dir of ['walk_right','walk_left'])for(let i=0;i<10;i++)heroFrames[dir+i]=img('assets/character/'+dir+'/'+String(i).padStart(2,'0')+'.png');
 const ready=i=>i.complete&&i.naturalWidth>0;
@@ -73,9 +73,33 @@ const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>
 const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
   const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
 const isFloor=(x,y)=>floor.has(k(x,y));
-const canStep=(x,y,dx,dy)=>isFloor(x+dx,y+dy)&&!blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
+// The movement graph is the collision authority: only connected lattice cells
+// can be traversed. Player movement, crate pushing and pathfinding all call it.
+const canStep=(x,y,dx,dy)=>Math.abs(dx)+Math.abs(dy)===1
+ && isFloor(x,y) && isFloor(x+dx,y+dy)
+ && !blocked.has(k(x,y)+'>'+k(x+dx,y+dy));
 if(![START,GATE_TOP,GATE_LOW,NORTH_STEP,...CRATES_START,...GOALS].every(p=>isFloor(...p))||CRATES_START.length!==GOALS.length)throw Error('Invalid level');
 const DELTAS=[[1,0],[-1,0],[0,1],[0,-1]];
+// Fail visibly during development if the map and movement graph disagree.
+// This checks every neighbour, reciprocal movement and exactly uniform
+// centre-to-centre distances across the main platform.
+function assertGrid() {
+ for(const v of floor) {
+  const [x,y]=v.split(',').map(Number);
+  for(const [dx,dy] of DELTAS) {
+   if(!canStep(x,y,dx,dy))continue;
+   if(!canStep(x+dx,y+dy,-dx,-dy))throw Error('One-way wall collision '+v);
+   if(x>=0&&x<=10&&y>=0&&y<=10&&x+dx>=0&&x+dx<=10&&y+dy>=0&&y+dy<=10){
+    const a=cen(x,y),b=cen(x+dx,y+dy);
+    if(Math.abs((b.x-a.x)-(dy-dx)*HW)>.01 || Math.abs((b.y-a.y)-(dy+dx)*HH)>.01)
+      throw Error('Misaligned painted tile '+v);
+   }
+  }
+ }
+ for(const p of [START,...CRATES_START,...GOALS,NORTH_STEP,GATE_TOP,GATE_LOW])
+  if(!isFloor(...p))throw Error('Puzzle object outside floor');
+}
+assertGrid();
 // Where a step in direction (dx,dy) leads, or null. Once the gate is raised, stepping "into" the parapet
 // above it takes the hero down through the gate to the low ground, and back again.
 function stepTo(x,y,dx,dy) {
@@ -235,68 +259,57 @@ const vaultPath=new Path2D();VAULT.forEach((p,i)=>i?vaultPath.lineTo(p[0],p[1]):
 const ease=t=>t*t*(3-2*t);
 /* Northern locked oak door. The pixels are drawn on the SAME room canvas,
    entirely within the existing painted arch; no second scene is overlaid. */
+/* Door and gate sprites are cropped from the generated dungeon pixel-art
+   assets and stored as one tiny lossless atlas. Existing stone arches are
+   part of the room illustration; draw ONLY wood/iron inside their openings. */
 function drawNorthernDoor(c,now) {
- const q=northDoorAt?ease(Math.min(1,(now-northDoorAt)/960)):0;
- const left=908,top=105,width=89,height=132;
+ const q=northDoorAt?ease(Math.min(1,(now-northDoorAt)/1050)):0;
  c.save();
- c.beginPath();
- c.moveTo(910,222);c.lineTo(910,150);
- c.quadraticCurveTo(914,100,947,97);
- c.quadraticCurveTo(991,106,994,153);
- c.lineTo(994,222);c.closePath();
- c.clip();
- // Recess between the opened leaf and the chamber beyond.
- c.fillStyle='#090b10';c.fillRect(907,94,90,134);
- const glow=c.createLinearGradient(910,117,996,225);
- glow.addColorStop(0,'#0c1015');glow.addColorStop(1,'#17120f');
- c.fillStyle=glow;c.fillRect(916,107,80,118);
- if(q<.999) {
-  // Hinge on the LEFT stone jamb; the leaf narrows as it swings inside.
-  c.save();c.translate(left+3,0);c.transform(1-.93*q,0,-.07*q,1,0,0);
-  c.fillStyle='#2a1814';c.fillRect(0,100,width,height);
-  const planks=['#483025','#523426','#432a22','#5c3a28','#3e2923','#513427','#402a23'];
-  for(let i=0;i<7;i++){
-   c.fillStyle=planks[i];c.fillRect(2+i*12,101,11,height-2);
-   c.fillStyle='rgba(218,151,85,.21)';c.fillRect(3+i*12,103,1,height-4);
-   c.fillStyle='rgba(8,5,7,.5)';c.fillRect(12+i*12,104,2,height-6);
-  }
-  c.fillStyle='#241c20';c.fillRect(0,153,87,7);c.fillRect(0,197,87,7);
-  c.fillStyle='#665344';c.fillRect(0,153,87,2);c.fillRect(0,197,87,2);
-  for(let x of [5,40,77])for(let y of [156,200]){c.fillStyle='#9e7a50';c.fillRect(x,y,3,3);c.fillStyle='#211820';c.fillRect(x+2,y+2,1,1);}
-  for(let y of [122,194]){c.fillStyle='#5a4d45';c.fillRect(1,y,8,10);c.fillStyle='#c39b59';c.fillRect(3,y+2,3,2);}
-  c.fillStyle='#a07b4b';c.fillRect(69,173,12,20);c.fillStyle='#241a1c';c.fillRect(72,178,6,12);
-  c.fillStyle='#f0bd70';c.fillRect(74,180,2,3);c.fillRect(73,183,4,3);
+ // The background is the original, beautifully drawn stone arch.
+ // Only its recess needs shading, not a second arch painted over it.
+ c.beginPath();c.moveTo(912,222);c.lineTo(912,151);
+ c.quadraticCurveTo(918,106,948,101);
+ c.quadraticCurveTo(985,109,992,156);
+ c.lineTo(992,222);c.closePath();c.clip();
+ c.fillStyle='#080b0f';c.fillRect(909,101,87,122);
+ const g=c.createLinearGradient(915,117,992,230);
+ g.addColorStop(0,'#111519');g.addColorStop(1,'#0a0a0e');
+ c.fillStyle=g;c.fillRect(915,106,76,116);
+ if(q<1 && ready(gateArt)) {
+  // Actual pixel-art plank-and-iron door: hinge on the LEFT long jamb.
+  c.save();c.translate(913,0);c.transform(1-.96*q,0,-.06*q,1,0,0);
+  c.drawImage(gateArt,0,0,32,47,0,105,79,118);
   c.restore();
+ } else if(q<1) {
+  c.fillStyle='#553527';c.fillRect(914,119,(77*(1-q))|0,103);
  }
  c.restore();
 }
-/* The lower (southern) portcullis has an actual raised state. Remove only
-   the pre-painted bars within the vaulted opening; keep its stone frame. */
 function drawSouthernGate(c,now) {
- const t=sealed()?Math.min(1,(now-sealedAt)/1700):0,p=ease(Math.max(0,t));
+ const p=sealed()?ease(Math.min(1,(now-sealedAt)/1700)):0;
  c.save();c.clip(vaultPath);
- const shade=c.createLinearGradient(455,445,510,540);
- shade.addColorStop(0,'#15151b');shade.addColorStop(.48,'#090b11');shade.addColorStop(1,'#03070b');
- c.fillStyle=shade;c.fillRect(447,437,80,111);
- // The dark steps behind the grate are revealed as it rises.
- for(let i=0;i<4;i++){const y=480+i*17;
-   c.fillStyle=i%2?'#25232a':'#201f25';c.fillRect(455+i*2,y,62-i*4,5);
-   c.fillStyle='#3e3430';c.fillRect(455+i*2,y,62-i*4,1);
+ // Cover ONLY the baked-in bars inside the existing arched opening.
+ // The surrounding masonry remains the ORIGINAL pixel-art background.
+ const shade=c.createLinearGradient(458,448,510,541);
+ shade.addColorStop(0,'#17141c');shade.addColorStop(.55,'#0d0c13');shade.addColorStop(1,'#06080c');
+ c.fillStyle=shade;c.fillRect(448,441,77,101);
+ // Uneven torchlit steps visible behind the portcullis as it lifts.
+ for(let i=0;i<3;i++){
+  const y=483+i*17,inset=i*4;
+  c.fillStyle=i%2?'#30282a':'#27252a';c.fillRect(459+inset,y,55-inset*2,5);
+  c.fillStyle='rgba(149,102,69,.35)';c.fillRect(460+inset,y,53-inset*2,1);
  }
- const warm=c.createRadialGradient(486,491,2,486,491,56);
- warm.addColorStop(0,'rgba(219,114,48,.12)');warm.addColorStop(1,'rgba(0,0,0,0)');
- c.fillStyle=warm;c.fillRect(444,438,90,111);
- c.save();c.translate(0,-p*110);
- // Barbed medieval portcullis, rising behind the stone arch.
- c.fillStyle='#1c1b20';c.fillRect(457,452,60,7);c.fillRect(457,522,60,8);
- c.fillStyle='#665c53';c.fillRect(459,453,56,2);c.fillRect(459,523,56,2);
- for(let x=463;x<=511;x+=12){
-   c.fillStyle='#101116';c.fillRect(x-2,449,6,85);
-   c.fillStyle='#75665a';c.fillRect(x-1,453,2,77);
-   c.fillStyle='#ab8e6d';c.fillRect(x,464,1,58);
+ if(p<1) {
+  c.save();c.translate(0,-p*114);
+  if(ready(gateArt))c.drawImage(gateArt,33,8,24,34,454,446,66,96);
+  else {
+   // Loading fallback; replaced with the hand-painted gate once loaded.
+   c.fillStyle='#7e6050';
+   for(let x=465;x<520;x+=12)c.fillRect(x,445,3,95);
+  }
+  c.restore();
  }
- for(let y of [475,507]){c.fillStyle='#191a20';c.fillRect(458,y,58,5);c.fillStyle='#7d6853';c.fillRect(460,y+1,54,1);}
- c.restore();c.restore();
+ c.restore();
 }
 function paintScene(now) {
  if(ready(bg))sctx.drawImage(bg,0,0,1085,566);else{sctx.fillStyle='#1b1519';sctx.fillRect(0,0,1085,566);}
@@ -321,7 +334,7 @@ function drawSeal(gx,gy,now){const p=cen(gx,gy),on=crateAt(gx,gy)!==-1,pulse=.5+
 function frame(now){
  // --- advance animations
  let hp=cen(...actor),lx=actor[0]+.5,ly=actor[1]+.5,walking=false,alpha=1;
- if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=tween.boxMove?t:ease(t)*.4+t*.6,a=cen(...tween.from),b=cen(...tween.to);
+ if(tween){const t=Math.min(1,(now-tween.started)/tween.duration),u=t,a=cen(...tween.from),b=cen(...tween.to);
   hp={x:a.x+(b.x-a.x)*u,y:a.y+(b.y-a.y)*u};lx=tween.from[0]+.5+(tween.to[0]-tween.from[0])*u;ly=tween.from[1]+.5+(tween.to[1]-tween.from[1])*u;walking=true;
   if(tween.through) {
    // A single continuous descent beneath the SOUTH gate, not the old
