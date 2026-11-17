@@ -70,8 +70,20 @@ const inv=(px,py)=>{const u=(px-OX)/HW,v=(py-OY)/HH;return [(v-u)/2,(v+u)/2];};
 // extra walkable cell. All regular moves remain on lattice centres.
 const floor=new Set(BOARD.cells.filter(p=>p[0]!==PORTAL[0]||p[1]!==PORTAL[1]).map(p=>k(...p)));
 const blocked=new Set();for(const [a,b] of BOARD.blocked){blocked.add(k(...a)+'>'+k(...b));blocked.add(k(...b)+'>'+k(...a));}
-const WALLS=BOARD.walls.map(w=>{const path=new Path2D();w.hull.forEach((p,i)=>i?path.lineTo(p[0],p[1]):path.moveTo(p[0],p[1]));path.closePath();
-  const xs=w.hull.map(p=>p[0]),ys=w.hull.map(p=>p[1]);return {box:w.box,path,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};});
+// Foreground occlusion needs only vertical WALL FACES. The original broad
+// hulls included the horizontal top/ground lip, causing the *floor* to slice
+// through the cloak. Keep the masonry face behind the top lip instead.
+const WALLS=BOARD.walls.map(w=>{
+ const hull=w.hull;
+ const face=new Path2D();
+ // Hull: top edge p0,p1,p2, then lower edge p3,p4,p5.
+ // Trim six pixels off the top cap; the wall face below is what occludes.
+ const points=hull.map((p,i)=>[p[0],p[1]+(i<3?7:0)]);
+ points.forEach((p,i)=>i?face.lineTo(p[0],p[1]):face.moveTo(p[0],p[1]));
+ face.closePath();
+ const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]);
+ return {box:w.box,path:face,x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};
+});
 const isFloor=(x,y)=>floor.has(k(x,y));
 // The movement graph is the collision authority: only connected lattice cells
 // can be traversed. Player movement, crate pushing and pathfinding all call it.
@@ -317,10 +329,18 @@ function paintScene(now) {
  drawSouthernGate(sctx,now);
  drawNorthernDoor(sctx,now);
 }
-function occlude(lx,ly,bx,by,bw,bh){                          // redraw every wall that stands in front of lattice point (lx,ly)
- for(const w of WALLS){if(lx>=w.box[1]-.001||ly>=w.box[3]-.001)continue;
-  if(bx>w.x1||bx+bw<w.x0||by>w.y1||by+bh<w.y0)continue;
-  ctx.save();ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.clip();ctx.clip(w.path);ctx.drawImage(scene,0,0);ctx.restore();}
+function occlude(lx,ly,bx,by,bw,bh) {
+ // Only the vertical stone faces in FRONT of the object may cover it.
+ // Never redraw the entire room or a floor patch on top of a character.
+ for(const wall of WALLS){
+  if(lx>=wall.box[1]-.001 || ly>=wall.box[3]-.001)continue;
+  if(bx>=wall.x1||bx+bw<=wall.x0||by>=wall.y1||by+bh<=wall.y0)continue;
+  ctx.save();
+  ctx.beginPath();ctx.rect(bx,by,bw,bh);ctx.clip();
+  ctx.clip(wall.path);
+  ctx.drawImage(scene,0,0);
+  ctx.restore();
+ }
 }
 function diamond(x,y,hw,hh){ctx.beginPath();ctx.moveTo(x,y-hh);ctx.lineTo(x+hw,y);ctx.lineTo(x,y+hh);ctx.lineTo(x-hw,y);ctx.closePath();}
 function drawSeal(gx,gy,now){const p=cen(gx,gy),on=crateAt(gx,gy)!==-1,pulse=.5+.5*Math.sin(now/520+gx*1.7+gy);
