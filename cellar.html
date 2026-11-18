@@ -32,7 +32,11 @@ button:hover{background:#29212a;color:#f9d69e}
 const LEVEL=JSON.parse(document.querySelector("#cellar-level").textContent);
 const C=document.querySelector("#game"),g=C.getContext("2d"),W=C.width,H=C.height;
 g.imageSmoothingEnabled=false;
-const OX=600,OY=30,HW=40,HH=20,WALL_H=36;
+// Projection belongs to the skin, not to collision. Future levels can
+// change the artwork scale without changing a single movement rule.
+const OX=LEVEL.render?.ox??600,OY=LEVEL.render?.oy??30,
+      HW=LEVEL.render?.halfWidth??40,HH=LEVEL.render?.halfHeight??20,
+      WALL_H=LEVEL.render?.wallHeight??36;
 const grid=LEVEL.tiles.map(row=>row.split("")),dirs=[[0,1],[0,-1],[-1,0],[1,0]];
 const K=(x,y)=>x+","+y,parse=k=>k.split(",").map(Number),on=(x,y)=>grid[y]&&grid[y][x],same=(a,b)=>a[0]===b[0]&&a[1]===b[1];
 const P=(x,y)=>({x:OX+(y-x)*HW,y:OY+(x+y)*HH});
@@ -241,7 +245,8 @@ function draw(now){
  requestAnimationFrame(draw);
 }
 function assertLevel(){
- if(grid.length!==11||grid.some(r=>r.length!==13))throw Error("Invalid grid dimensions");
+ if(!grid.length||!grid[0].length||grid.some(r=>r.length!==grid[0].length))
+   throw Error("Invalid rectangular tile map");
  const all=[LEVEL.entry,LEVEL.northernGate,LEVEL.southernGate,LEVEL.southLanding,...LEVEL.crates,...LEVEL.goals];
  for(const p of all)if(!on(...p)||on(...p)==="#")throw Error("Entity occupies a wall: "+K(...p));
  for(const goal of LEVEL.goals)if(!LEVEL.tiles[goal[1]]||on(...goal)==="#")throw Error("Invalid goal");
