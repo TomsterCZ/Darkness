@@ -37,10 +37,15 @@ def main(output: Path):
 
     # Pixel art sampled exclusively from masonry, never other passages.
     panels = [
-        fit_crop(stone, (int(sw*.42), 4, int(sw*.79), int(sh*.34))),
-        fit_crop(scene, (int(fw*.14), int(fh*.45), int(fw*.36), int(fh*.61))),
-        fit_crop(stone, (int(sw*.65), int(sh*.62), int(sw*.94), int(sh*.97))),
-        fit_crop(stone, (int(sw*.36), int(sh*.63), int(sw*.68), int(sh*.98))),
+        # Clean unbroken pavement at the TOP CENTER of the stone source,
+        # never the south-facing masonry or dark maze geometry.
+        fit_crop(stone, (int(sw*.37), 4, int(sw*.73), int(sh*.26))),
+        # Closely joined mossy stone caps at the center horizontal ramp.
+        fit_crop(stone, (int(sw*.13), int(sh*.48), int(sw*.62), int(sh*.68))),
+        # Front face, actual blockwork under the upper stone lip.
+        fit_crop(stone, (int(sw*.43), int(sh*.67), int(sw*.72), int(sh*.96))),
+        # Alternate shaded face, from the right-hand masonry.
+        fit_crop(stone, (int(sw*.68), int(sh*.65), int(sw*.98), int(sh*.95))),
     ]
     for i, panel in enumerate(panels):
         out.alpha_composite(panel, ((i % 3)*128, (i//3)*128))
