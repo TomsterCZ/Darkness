@@ -38,7 +38,9 @@
         const neighbors=neighbor.filter(Boolean).length;
         let variant=neighbors===0?"isolated":neighbors===1?"end":neighbors===2?(mask===5||mask===10?"straight":"corner"):neighbors===3?"tee":"cross";
         topology[variant]++;
-        const visibleLeft=!isWall(x,y+1),visibleRight=!isWall(x+1,y);
+        // The screen-left face borders the +x (SW) tile. The screen-right
+        // face borders the +y (SE) tile; swapping these caused wall seams.
+        const visibleLeft=!isWall(x+1,y),visibleRight=!isWall(x,y+1);
         if(visibleLeft)faces.left++;
         if(visibleRight)faces.right++;
         const entry={...pos,mask,variant,visibleLeft,visibleRight,decor:hash(x,y)%17===0?"moss":null};
@@ -97,66 +99,102 @@
       if(shade){ctx.fillStyle=shade;ctx.fillRect(bx,by,bw,bh);}
       ctx.restore();
     }
-    function floor(x,y){
-      const p=point(x,y),d=diamond(p),n=hash(x,y,7);
-      polygon(d, n%4===0?"#34292b":"#372a2b");
-      const src=images.stone||images.floor;
-      if(ready(src)) {
-        // Guaranteed clean: source rectangle in the north-east floor
-        // section of cellar_stone_atlas.jpg (no wall pixels).
-        const sx=250+n%70, sy=4+(n>>>9)%22;
-        clippedMaterial(d,src,[sx,sy,80,40],n%7===0?"rgba(45,24,24,.12)":null);
-      }
-      ctx.strokeStyle="rgba(20,15,19,.30)";ctx.lineWidth=.65;path(d);ctx.stroke();
-      if(n%19===3){
-        ctx.fillStyle="rgba(184,123,75,.11)";
-        ctx.fillRect(Math.round(p.x)-3,Math.round(p.y)-1,2,1);
-        ctx.fillRect(Math.round(p.x)+4,Math.round(p.y)+2,1,1);
-      }
+    function material(name){
+      const atlas=images.illustrated;
+      if(ready(atlas))return atlas;
+      return images.stone;
     }
-    function wall(x,y) {
+    function floor(x,y){
+      const p=point(x,y),d=diamond(p),v=hash(x,y,7);
+      polygon(d,"#30262b");
+      if(ready(images.illustrated)){
+        // Author-generated hand-painted stone, not a photograph of the
+        // previously painted maze. Every sample is confined to floor.
+        const sx=v%38,sy=(v>>>9)%45;
+        clippedMaterial(d,images.illustrated,[sx,sy,89,76],
+          (v%5===0)?"rgba(20,13,24,.12)":null);
+      }else if(ready(images.stone)){
+        const sx=255+v%49;
+        clippedMaterial(d,images.stone,[sx,6,80,40],"rgba(12,7,16,.13)");
+      }
+      // Only edge joints of paving stones; no second collision blueprint.
+      ctx.strokeStyle="rgba(20,11,20,.18)";ctx.lineWidth=.55;path(d);ctx.stroke();
+    }
+    function wall(x,y){
       const tile=wallByKey.get(key(x,y));if(!tile)return;
       const p=point(x,y),t=p.y-WH;
       const n=[p.x,t-HH],e=[p.x+HW,t],s=[p.x,t+HH],w=[p.x-HW,t];
       const be=[p.x+HW,p.y],bs=[p.x,p.y+HH],bw=[p.x-HW,p.y];
-      const stone=images.stone,nv=hash(x,y);
       const L=[w,s,bs,bw],R=[s,e,be,bs],TOP=[n,e,s,w];
-      // Wall faces are rendered only when exposed toward the viewer.
-      // A neighbor wall occupies its own complete square; no overlapping
-      // visual mask or fake extra floor-plane geometry.
+      const atlas=images.illustrated,painted=ready(atlas),v=hash(x,y);
+      // Continuous masonry: every full one-square wall has ONE visible
+      // top. Front faces are drawn only on the exposed (SW, SE) edges.
+      // Never draw front faces between two contiguous wall squares.
       if(tile.visibleLeft){
-        polygon(L,"#312329");
-        clippedMaterial(L,stone,[235+(nv%56),193,58,59],"rgba(21,11,20,.14)");
-        ctx.strokeStyle="rgba(19,13,17,.55)";ctx.lineWidth=1;path(L);ctx.stroke();
+        polygon(L,"#37262d");
+        if(painted){
+          clippedMaterial(L,atlas,[v%29,128+(v>>>4)%34,90,91],"rgba(6,8,17,.24)");
+        }else{
+          clippedMaterial(L,images.stone,[230+v%40,180,64,73],"rgba(18,8,17,.18)");
+        }
+        ctx.strokeStyle="rgba(19,14,19,.42)";ctx.lineWidth=.95;
+        ctx.beginPath();ctx.moveTo(...bw);ctx.lineTo(...w);ctx.stroke();
       }
       if(tile.visibleRight){
-        polygon(R,"#241f26");
-        clippedMaterial(R,stone,[382+(nv%26),174,52,67],"rgba(8,11,20,.23)");
-        ctx.strokeStyle="rgba(16,11,18,.63)";ctx.lineWidth=1;path(R);ctx.stroke();
+        polygon(R,"#231c25");
+        if(painted){
+          clippedMaterial(R,atlas,[128+(v%25),10+(v>>>8)%32,88,76],"rgba(4,7,17,.44)");
+        }else{
+          clippedMaterial(R,images.stone,[350+v%30,165,75,77],"rgba(8,8,18,.32)");
+        }
+        ctx.strokeStyle="rgba(13,11,18,.47)";ctx.lineWidth=.95;
+        ctx.beginPath();ctx.moveTo(...be);ctx.lineTo(...e);ctx.stroke();
       }
-      polygon(TOP,"#5f4943");
-      clippedMaterial(TOP,stone,[135+(nv%170),132,80,40],"rgba(78,48,41,.08)");
-      // Quiet stone joints. Runs share the same dimensions and depth.
-      ctx.strokeStyle="rgba(26,16,24,.70)";ctx.lineWidth=1.3;path(TOP);ctx.stroke();
-      if(tile.visibleLeft){ctx.strokeStyle="rgba(221,158,95,.27)";ctx.lineWidth=.9;
-        ctx.beginPath();ctx.moveTo(...w);ctx.lineTo(...s);ctx.stroke();}
-      if(tile.visibleRight){ctx.strokeStyle="rgba(205,153,95,.22)";ctx.lineWidth=.9;
-        ctx.beginPath();ctx.moveTo(...s);ctx.lineTo(...e);ctx.stroke();}
-      if(tile.decor==="moss" && (tile.visibleLeft||tile.visibleRight)){
-        const side=tile.visibleLeft?-1:1;
-        ctx.lineCap="round";ctx.lineWidth=2.3;ctx.strokeStyle="rgba(74,73,35,.83)";
-        const xx=p.x+side*(HW*.38);
-        for(let a=0;a<3;a++){
-          const length=10+(hash(x,y,a)%19);
-          ctx.beginPath();ctx.moveTo(xx+a*4,t+HH-3);ctx.lineTo(xx+a*4-2,t+HH+length/2);
-          ctx.lineTo(xx+a*4+1,t+HH+length);ctx.stroke();
+      polygon(TOP,"#60433b");
+      if(painted){
+        clippedMaterial(TOP,atlas,[128+v%31,(v>>>7)%35,92,78],
+          "rgba(22,10,18,.06)");
+      }else{
+        clippedMaterial(TOP,images.stone,[135+v%120,132,80,40],
+          "rgba(19,9,17,.10)");
+      }
+      // Draw ONLY exterior contour edges, omitting the shared grout
+      // line of each adjacent wall square. These strokes join naturally.
+      const wallNorth=spec.isWall(x-1,y);
+      const wallEast=spec.isWall(x,y+1);
+      const wallSouth=spec.isWall(x+1,y);
+      const wallWest=spec.isWall(x,y-1);
+      const contour=[
+        [n,e,!wallNorth],[e,s,!wallEast],
+        [s,w,!wallSouth],[w,n,!wallWest]
+      ];
+      for(const [a,b,exposed] of contour){
+        if(!exposed)continue;
+        ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);
+        ctx.strokeStyle="rgba(17,12,20,.77)";ctx.lineWidth=1.3;ctx.stroke();
+      }
+      // Beveled top highlights only along genuine visible perimeters.
+      for(const [a,b,exposed]of [[w,s,tile.visibleLeft],[s,e,tile.visibleRight]]){
+        if(!exposed)continue;
+        ctx.beginPath();ctx.moveTo(a[0],a[1]-.6);ctx.lineTo(b[0],b[1]-.6);
+        ctx.strokeStyle="rgba(237,163,93,.35)";ctx.lineWidth=.85;ctx.stroke();
+      }
+      // Rare trailing ivy, painted over only actually exposed masonry.
+      if(tile.decor==="moss"&&(tile.visibleLeft||tile.visibleRight)){
+        const off=tile.visibleLeft?(-HW*.42):(HW*.42);
+        ctx.strokeStyle="#4a4728";ctx.lineWidth=2.1;ctx.lineCap="round";
+        for(let j=0;j<4;j++){
+          let len=9+(hash(x,y,j)%15),xx=p.x+off+j*3;
+          ctx.beginPath();ctx.moveTo(xx,t+HH);
+          ctx.lineTo(xx+(j%2?3:-2),t+HH+len*.54);
+          ctx.lineTo(xx+(j%2?-1:3),t+HH+len);ctx.stroke();
         }
         ctx.lineCap="butt";
       }
     }
     function backdrop(now=0) {
       const ambient=images.ambient;
-      if(ready(ambient))ctx.drawImage(ambient,0,0,ctx.canvas.width,ctx.canvas.height);
+      if(ready(ambient))ctx.drawImage(ambient,0,0,projection.logicalWidth||1085,projection.logicalHeight||566);
       else {ctx.fillStyle="#0c0b12";ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height);}
       // Warm torches already belong to the original illustrated background.
       // Add a tiny animated glow that connects them to the playable stone.
@@ -168,50 +206,54 @@
         ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);
       }
     }
-    function gate(x,y,kind,now,openingTime,openState) {
+    function gate(x,y,kind,now,openingTime,openState){
       const p=point(x,y);
+      const painted=ready(images.illustrated),pan=painted?images.illustrated:null;
       const premium=ready(images.premiumGate)?images.premiumGate:images.gate;
-      const deluxe=ready(images.premiumGate);
-      const fraction=openState ? Math.min(1,Math.max(0,(now-openingTime)/(kind==="N"?1000:1150))) : 0;
-      const bx=p.x-39,by=p.y-94,bw=78,bh=94;
-      // A single actual doorway tile, not a solid block hidden underneath.
-      // Use the original illustrated wooden door / iron portcullis artwork.
-      ctx.save();
-      ctx.fillStyle="#09090e";
-      const opening=[[p.x-27,p.y],[p.x-27,p.y-61],[p.x-17,p.y-77],[p.x,p.y-84],
-        [p.x+17,p.y-77],[p.x+27,p.y-61],[p.x+27,p.y]];
-      polygon(opening,"#0b0b11");
-      if(ready(premium)){
-        const sx=kind==="N"?0:premium.naturalWidth*.50, sw=premium.naturalWidth*.5;
-        ctx.imageSmoothingEnabled=false;
-        // Source carries its OWN hand-drawn arch, stones and metalwork.
-        // No procedural second arch is superimposed on it.
-        ctx.drawImage(premium,sx,0,sw,premium.naturalHeight,bx,by,bw,bh);
+      const fraction=openState?Math.max(0,Math.min(1,(now-openingTime)/(kind==="N"?1000:1150))):0;
+      const bw=kind==="N"?94:108,bh=kind==="N"?127:127;
+      const bx=p.x-bw/2,by=p.y-bh+9;
+      // Illustrated stone ARCH remains fixed across all states. Only the
+      // central wooden/iron leaf moves. Its background is transparent,
+      // preventing an artificial rectangular wall laid over the corridor.
+      if(painted){
+        const sx=kind==="N"?128:256;
+        ctx.save();
+        ctx.drawImage(pan,sx,128,128,128,bx,by,bw,bh);
         if(fraction>0){
-          // Only the inner leaf is removed, leaving original stone voussoirs
-          // and jambs completely unchanged in both states.
           ctx.save();
-          const inner={x:p.x-24,y:p.y-73,w:48,h:73};
-          ctx.beginPath();ctx.rect(inner.x,inner.y,inner.w,inner.h);ctx.clip();
-          ctx.fillStyle="#0b0c13";ctx.fillRect(inner.x,inner.y,inner.w,inner.h);
-          if(fraction<1){
-            if(kind==="S"){
-              ctx.save();ctx.translate(0,-fraction*79);
-              ctx.drawImage(premium,sx+sw*.21,premium.naturalHeight*.16,sw*.58,premium.naturalHeight*.78,inner.x,inner.y,inner.w,inner.h);
+          const innerLeft=bx+bw*.25,innerW=bw*.50;
+          const innerTop=by+bh*.33,innerH=bh*.64;
+          ctx.beginPath();
+          ctx.moveTo(innerLeft,by+bh*.96);
+          ctx.lineTo(innerLeft,innerTop+16);
+          ctx.quadraticCurveTo(innerLeft+innerW*.5,innerTop-15,innerLeft+innerW,innerTop+16);
+          ctx.lineTo(innerLeft+innerW,by+bh*.96);ctx.closePath();
+          ctx.clip();
+          ctx.fillStyle="#100b13";
+          ctx.fillRect(innerLeft-1,innerTop-18,innerW+2,innerH+18);
+          if(fraction<.999){
+            if(kind==="N"){
+              ctx.save();ctx.translate(innerLeft,0);
+              ctx.transform(1-.95*fraction,0,-.06*fraction,1,0,0);
+              ctx.drawImage(pan,176,185,32,62,0,innerTop,innerW,innerH);
               ctx.restore();
             }else{
-              ctx.save();ctx.translate(inner.x,0);
-              ctx.transform(1-.94*fraction,0,-.055*fraction,1,0,0);
-              ctx.drawImage(premium,sx+sw*.20,premium.naturalHeight*.17,sw*.60,premium.naturalHeight*.77,0,inner.y,inner.w,inner.h);
+              ctx.save();ctx.translate(0,-fraction*innerH);
+              ctx.drawImage(pan,304,174,32,71,innerLeft,innerTop,innerW,innerH);
               ctx.restore();
             }
           }
           ctx.restore();
         }
-      }else {
-        ctx.fillStyle="#513729";ctx.fillRect(p.x-18,p.y-67,36,67);
+        ctx.restore();
+      }else if(ready(premium)){
+        ctx.save();
+        const sx=kind==="N"?0:premium.naturalWidth*.50;
+        ctx.drawImage(premium,sx,0,premium.naturalWidth*.50,premium.naturalHeight,bx,by,bw,bh);
+        // Legacy detailed asset as fallback while high-res texture loads.
+        ctx.restore();
       }
-      ctx.restore();
     }
     function goal(x,y,occupied) {
       const p=point(x,y);
@@ -227,7 +269,7 @@
     }
     function lighting() {
       // A single subtle final exposure pass, not another geometry layer.
-      const W=ctx.canvas.width,H=ctx.canvas.height;
+      const W=projection.logicalWidth||1085,H=projection.logicalHeight||566;
       const vignette=ctx.createRadialGradient(W*.48,H*.42,W*.06,W*.52,H*.48,W*.69);
       vignette.addColorStop(0,"rgba(4,5,10,0)");
       vignette.addColorStop(1,"rgba(3,4,10,.27)");
