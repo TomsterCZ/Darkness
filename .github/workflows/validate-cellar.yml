@@ -1,0 +1,41 @@
+name: Validate cellar grid and pixel-art renderer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cellar.html'
+      - 'assets/js/**'
+      - 'tools/test_cellar_*.mjs'
+      - 'tools/test_cellar_*.cjs'
+      - 'tools/compile_cellar_visual.cjs'
+      - '.github/workflows/validate-cellar.yml'
+  pull_request:
+    paths:
+      - 'cellar.html'
+      - 'assets/js/**'
+      - 'tools/test_cellar_*.mjs'
+      - 'tools/test_cellar_*.cjs'
+      - 'tools/compile_cellar_visual.cjs'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify crate puzzle and gate connectivity
+        run: node tools/test_cellar_grid.mjs
+      - name: Verify visual masks and wall correspondence
+        run: node tools/test_cellar_visual.cjs
+      - name: Generate deterministic visual blueprint
+        run: |
+          node tools/compile_cellar_visual.cjs > /tmp/cellar-render.json
+          node tools/compile_cellar_visual.cjs --svg > /tmp/cellar-blueprint.svg
+          test -s /tmp/cellar-render.json
+          test -s /tmp/cellar-blueprint.svg
