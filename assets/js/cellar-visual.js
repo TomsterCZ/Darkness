@@ -143,7 +143,7 @@
       if(tile.visibleRight){
         polygon(R,"#231c25");
         if(painted){
-          clippedMaterial(R,atlas,[128+(v%25),10+(v>>>8)%32,88,76],"rgba(4,7,17,.44)");
+          clippedMaterial(R,atlas,[256+(v%25),10+(v>>>8)%32,88,76],"rgba(4,7,17,.44)");
         }else{
           clippedMaterial(R,images.stone,[350+v%30,165,75,77],"rgba(8,8,18,.32)");
         }
