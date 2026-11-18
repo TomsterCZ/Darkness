@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darkness — Visual Blueprint Inspector</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0c0a11;color:#e7d0aa;font:15px/1.5 system-ui,sans-serif}
+header{max-width:1220px;margin:18px auto;padding:0 18px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+h1{margin:0 24px 0 0;font:600 23px Georgia,serif}
+header a{color:#ddaa76}
+button{background:#271d24;color:#f0cd9b;border:1px solid #866b5d;padding:8px 12px;border-radius:6px;cursor:pointer}
+button[aria-pressed="true"]{background:#665044}
+main{max-width:1220px;margin:auto;padding:0 18px 22px}
+#frame{background:#080a10;position:relative;overflow:hidden;border:1px solid #6a5144}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;cursor:crosshair}
+aside{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:start;margin-top:12px;color:#baa78d}
+#detail{min-height:28px;font:14px ui-monospace,monospace;color:#e2c399}
+p{margin:6px 0}
+</style>
+</head><body>
+<header><h1>Darkness · Cellar blueprint</h1>
+<a href="cellar.html">Play the cellar</a>
+<button id="skin" aria-pressed="true">Pixel-art skin</button>
+<button id="grid" aria-pressed="false">Show logical grid</button>
+<button id="export">Export render spec (JSON)</button>
+</header>
+<main><div id="frame"><canvas id="view" width="1085" height="566"></canvas></div>
+<aside><div><p id="detail">Loading the authoritative map…</p>
+<p>Hover a tile to inspect its logical type and wall-neighbor mask.</p></div>
+<div id="summary"></div></aside></main>
+<script src="assets/js/cellar-visual.js"></script>
+<script>
+(async()=>{
+"use strict";
+const canvas=document.querySelector("#view"),c=canvas.getContext("2d");
+c.imageSmoothingEnabled=false;
+const page=await fetch("cellar.html").then(r=>{if(!r.ok)throw Error("Could not fetch game level");return r.text();});
+const match=page.match(/<script id="cellar-level" type="application\/json">([\s\S]*?)<\/script>/);
+if(!match)throw Error("The game does not contain its authoritative map");
+const level=JSON.parse(match[1]),r=level.render||{},P={OX:r.ox??600,OY:r.oy??30,HW:r.halfWidth??40,HH:r.halfHeight??20,wallHeight:r.wallHeight??36};
+const spec=window.DungeonVisual.compile(level,P);
+const images={};
+const load=async(name,src)=>{const img=new Image();img.src=src;images[name]=img;try{await img.decode();}catch(e){}};
+await Promise.all([
+ load("ambient","assets/scene/cellar_ambient.jpg"),
+ load("stone","assets/scene/cellar_stone_atlas.jpg"),
+ load("premiumGate","assets/props/dungeon_gate_art_v2.webp"),
+ load("crate","assets/props/crate_pixel.png"),
+ load("hero","assets/character/idle/00.png")
+]);
+const skin=window.DungeonVisual.createRenderer(c,level,images,P);
+let textured=true,showGrid=false,hover=null;
+const floorSet=new Set(spec.floors.map(p=>p.x+","+p.y));
+const crateSet=new Set(level.crates.map(p=>p.join(","))),goalSet=new Set(level.goals.map(p=>p.join(",")));
+function diamond(x,y){const p=spec.project(x,y);return [[p.x,p.y-P.HH],[p.x+P.HW,p.y],[p.x,p.y+P.HH],[p.x-P.HW,p.y]];}
+function poly(a){c.beginPath();c.moveTo(...a[0]);for(let i=1;i<a.length;i++)c.lineTo(...a[i]);c.closePath();}
+function draw(now){
+ if(textured)skin.backdrop(now);
+ else{c.fillStyle="#0b0b11";c.fillRect(0,0,1085,566);}
+ for(const p of spec.floors){
+  if(textured)skin.floor(p.x,p.y);
+  else{poly(diamond(p.x,p.y));c.fillStyle="#493934";c.fill();c.strokeStyle="#291d22";c.stroke();}
+ }
+ for(const p of level.goals)skin.goal(p[0],p[1],crateSet.has(p.join(",")));
+ const stack=spec.walls.map(p=>({...p,kind:"#"})).concat(
+ spec.gates.map(p=>({...p,kind:p.kind})),
+ level.crates.map(([x,y])=>({x,y,kind:"crate",depth:x+y+.12})),
+ [{x:level.entry[0],y:level.entry[1],depth:level.entry[0]+level.entry[1]+.3,kind:"hero"}]
+ ).sort((a,b)=>a.depth-b.depth);
+ for(const e of stack){
+  const p=spec.project(e.x,e.y);
+  if(e.kind==="#"){
+   if(textured)skin.wall(e.x,e.y);
+   else {
+    const t=p.y-P.wallHeight;
+    poly([[p.x,t-P.HH],[p.x+P.HW,t],[p.x,t+P.HH],[p.x-P.HW,t]]);
+    c.fillStyle="#8c6858";c.fill();c.strokeStyle="#382a2c";c.stroke();
+   }
+  }else if(e.kind==="N"||e.kind==="S"){
+   if(textured)skin.gate(e.x,e.y,e.kind,0,0,false);
+   else{poly(diamond(e.x,e.y));c.fillStyle="#ce8e63";c.fill();}
+  }else if(e.kind==="crate") {
+   if(textured&&images.crate.complete&&images.crate.naturalWidth)c.drawImage(images.crate,p.x-28,p.y-54,56,66);
+   else{c.fillStyle="#966444";c.fillRect(p.x-17,p.y-33,34,33);}
+  }else if(images.hero.complete&&images.hero.naturalWidth&&textured) {
+   const im=images.hero,h=73,w=h*im.naturalWidth/im.naturalHeight;
+   c.drawImage(im,p.x-w/2,p.y-h+3,w,h);
+  }else{c.fillStyle="#e1ccab";c.beginPath();c.arc(p.x,p.y-13,9,0,Math.PI*2);c.fill();}
+ }
+ if(textured)skin.lighting();
+ if(showGrid){
+  for(let y=0;y<level.tiles.length;y++)for(let x=0;x<level.tiles[y].length;x++){
+   poly(diamond(x,y));c.strokeStyle="#69c9df55";c.lineWidth=.85;c.stroke();
+  }
+ }
+ if(hover){
+  poly(diamond(...hover));c.strokeStyle="#f7e3b0";c.lineWidth=2;c.stroke();
+ }
+}
+function inspect(x,y){
+ const k=x+","+y,cell=level.tiles[y][x],wall=spec.walls.find(w=>w.x===x&&w.y===y);
+ const extras=[crateSet.has(k)?"crate":null,goalSet.has(k)?"goal":null].filter(Boolean).join(", ");
+ document.querySelector("#detail").textContent=
+ "tile ("+x+", "+y+") · "+(cell==="#"?"SOLID WALL":cell==="N"?"LOCKED NORTH DOOR":cell==="S"?"SOUTH GATE":"WALKABLE FLOOR")+
+ (wall?" · "+wall.variant+" (mask "+wall.mask+") · faces "+[wall.visibleLeft?"left":null,wall.visibleRight?"right":null].filter(Boolean).join("/"):"")+
+ (extras?" · "+extras:"");
+}
+canvas.addEventListener("pointermove",ev=>{
+ const b=canvas.getBoundingClientRect(),sx=(ev.clientX-b.left)*1085/b.width,sy=(ev.clientY-b.top)*566/b.height;
+ let best=null,score=1.05;
+ for(let y=0;y<level.tiles.length;y++)for(let x=0;x<level.tiles[y].length;x++){
+  const p=spec.project(x,y),d=Math.abs(sx-p.x)/P.HW+Math.abs(sy-p.y)/P.HH;
+  if(d<score){best=[x,y];score=d;}
+ }
+ hover=best;if(best)inspect(...best);draw(performance.now());
+});
+canvas.addEventListener("pointerleave",()=>{hover=null;draw(performance.now())});
+document.querySelector("#skin").onclick=ev=>{textured=!textured;ev.target.setAttribute("aria-pressed",String(textured));draw(performance.now())};
+document.querySelector("#grid").onclick=ev=>{showGrid=!showGrid;ev.target.setAttribute("aria-pressed",String(showGrid));draw(performance.now())};
+document.querySelector("#export").onclick=()=>{
+ const blob=new Blob([JSON.stringify(spec.export(),null,2)],{type:"application/json"});
+ const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="cellar-render.json";a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+document.querySelector("#summary").textContent=
+ spec.width+" × "+spec.height+" grid · "+spec.wallCount+" wall squares · "+
+ spec.walkableCount+" walkable squares · "+spec.gates.length+" gateways";
+draw(performance.now());
+})().catch(e=>{document.querySelector("#detail").textContent="Blueprint inspector error: "+e.message;console.error(e)});
+</script></body></html>
