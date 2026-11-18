@@ -14,7 +14,7 @@ button:hover{background:#29212a;color:#f9d69e}
 #ending{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:radial-gradient(ellipse,rgba(12,12,19,.75),rgba(4,5,7,.95));color:#edc98d;text-shadow:0 4px 8px black;text-align:center;font-size:clamp(20px,3vw,39px)}
 #ending.show{display:flex}#ending small{margin-top:14px;font-size:clamp(11px,1.6vw,18px);color:#bda58d}
 </style></head><body>
-<div id="stage"><canvas id="game" width="1085" height="566" aria-label="Pixel-art isometric dungeon puzzle"></canvas>
+<div id="stage"><canvas id="game" width="2170" height="1132" aria-label="Pixel-art isometric dungeon puzzle"></canvas>
 <div id="controls"><button id="undo" aria-label="Undo" title="Undo (Z)">↶</button><button id="restart" aria-label="Restart" title="Restart (R)">⟲</button><button id="sound" aria-label="Sound" title="Sound (M)">♫</button></div>
 <div id="hint"></div><div id="ending">THE PASSAGE IS OPEN<small>Beyond the old doorway, another secret awaits.</small></div></div>
 <audio id="music" src="assets/music/before_the_light_soft_soundblaster.ogg" preload="none" loop></audio>
@@ -30,7 +30,11 @@ button:hover{background:#29212a;color:#f9d69e}
 (()=>{
 "use strict";
 const LEVEL=JSON.parse(document.querySelector("#cellar-level").textContent);
-const C=document.querySelector("#game"),g=C.getContext("2d"),W=C.width,H=C.height;
+const C=document.querySelector("#game"),g=C.getContext("2d");
+// High-density, four-times-pixel-count backing store, but the same
+// 1085×566 logical world. Physics and click-to-move remain unchanged.
+const W=1085,H=566,DRAW_SCALE=2;
+g.setTransform(DRAW_SCALE,0,0,DRAW_SCALE,0,0);
 g.imageSmoothingEnabled=false;
 // Projection belongs to the skin, not to collision. Future levels can
 // change the artwork scale without changing a single movement rule.
@@ -47,13 +51,14 @@ const images={};function image(id,src){const i=new Image();i.src=src;images[id]=
 image("ambient","assets/scene/cellar_ambient.jpg");
 // Floor tiles are cropped ONLY from a clean masonry texture atlas, never from a pre-painted maze.
 image("stone","assets/scene/cellar_stone_atlas.jpg");
+image("illustrated","assets/scene/dungeon_illustrated_atlas.webp");
 image("crate","assets/props/crate_pixel.png");
 image("gate","assets/props/dungeon_gate_atlas.png");
 image("premiumGate","assets/props/dungeon_gate_art_v2.webp");
 image("idle","assets/character/idle/00.png");
 for(const dir of ["walk_right","walk_left"])for(let j=0;j<10;j++)image(dir+j,"assets/character/"+dir+"/"+String(j).padStart(2,"0")+".png");
 const ready=im=>im&&im.complete&&im.naturalWidth>0;
-const skin=window.DungeonVisual.createRenderer(g,LEVEL,images,{OX,OY,HW,HH,wallHeight:WALL_H});
+const skin=window.DungeonVisual.createRenderer(g,LEVEL,images,{OX,OY,HW,HH,wallHeight:WALL_H,logicalWidth:W,logicalHeight:H});
 const music=document.querySelector("#music"),victory=document.querySelector("#victory");
 music.volume=.28;victory.volume=.42;let muted=false,hasAudio=false;
 function wake(){
