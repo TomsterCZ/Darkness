@@ -18,8 +18,8 @@ assert.equal(spec.drawOrder.filter(x=>x.type==="wall").length,spec.wallCount);
 const K=(x,y)=>x+","+y;
 for(const wall of spec.walls) {
  assert.ok(truth.has(K(wall.x,wall.y)),"Orphan painted wall");
- assert.equal(wall.visibleLeft,!truth.has(K(wall.x,wall.y+1)));
- assert.equal(wall.visibleRight,!truth.has(K(wall.x+1,wall.y)));
+ assert.equal(wall.visibleLeft,!truth.has(K(wall.x+1,wall.y)));
+ assert.equal(wall.visibleRight,!truth.has(K(wall.x,wall.y+1)));
  assert.equal(wall.mask & 1,truth.has(K(wall.x,wall.y-1))?1:0);
  assert.equal(Boolean(wall.mask & 2),truth.has(K(wall.x+1,wall.y)));
  assert.equal(Boolean(wall.mask & 4),truth.has(K(wall.x,wall.y+1)));
