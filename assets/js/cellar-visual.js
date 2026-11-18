@@ -208,7 +208,9 @@
     }
     function gate(x,y,kind,now,openingTime,openState){
       const p=point(x,y);
-      const painted=ready(images.illustrated),pan=painted?images.illustrated:null;
+      const generated=ready(images.generatedGates);
+      const painted=generated||ready(images.illustrated);
+      const pan=generated?images.generatedGates:ready(images.illustrated)?images.illustrated:null;
       const premium=ready(images.premiumGate)?images.premiumGate:images.gate;
       const fraction=openState?Math.max(0,Math.min(1,(now-openingTime)/(kind==="N"?1000:1150))):0;
       const bw=kind==="N"?94:108,bh=kind==="N"?127:127;
@@ -217,9 +219,10 @@
       // central wooden/iron leaf moves. Its background is transparent,
       // preventing an artificial rectangular wall laid over the corridor.
       if(painted){
-        const sx=kind==="N"?128:256;
+        const sx=generated?(kind==="N"?0:128):(kind==="N"?128:256);
+        const sy=generated?0:128;
         ctx.save();
-        ctx.drawImage(pan,sx,128,128,128,bx,by,bw,bh);
+        ctx.drawImage(pan,sx,sy,128,128,bx,by,bw,bh);
         if(fraction>0){
           ctx.save();
           const innerLeft=bx+bw*.25,innerW=bw*.50;
@@ -236,11 +239,11 @@
             if(kind==="N"){
               ctx.save();ctx.translate(innerLeft,0);
               ctx.transform(1-.95*fraction,0,-.06*fraction,1,0,0);
-              ctx.drawImage(pan,176,185,32,62,0,innerTop,innerW,innerH);
+              ctx.drawImage(pan,sx+48,sy+57,32,62,0,innerTop,innerW,innerH);
               ctx.restore();
             }else{
               ctx.save();ctx.translate(0,-fraction*innerH);
-              ctx.drawImage(pan,304,174,32,71,innerLeft,innerTop,innerW,innerH);
+              ctx.drawImage(pan,sx+48,sy+46,32,71,innerLeft,innerTop,innerW,innerH);
               ctx.restore();
             }
           }
