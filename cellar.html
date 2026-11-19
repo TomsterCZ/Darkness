@@ -26,6 +26,7 @@ button:hover{background:#29212a;color:#f9d69e}
 "crates":[[4,8],[6,7],[8,7],[10,8]],"goals":[[3,7],[5,7],[7,7],[9,7]]}
 </script>
 <script src="assets/js/cellar-visual.js"></script>
+<script src="assets/js/cellar-registered.js"></script>
 <script>
 (()=>{
 "use strict";
@@ -59,7 +60,17 @@ image("generatedGates","assets/props/dungeon_illustrated_gates.webp");
 image("idle","assets/character/idle/00.png");
 for(const dir of ["walk_right","walk_left"])for(let j=0;j<10;j++)image(dir+j,"assets/character/"+dir+"/"+String(j).padStart(2,"0")+".png");
 const ready=im=>im&&im.complete&&im.naturalWidth>0;
-const skin=window.DungeonVisual.createRenderer(g,LEVEL,images,{OX,OY,HW,HH,wallHeight:WALL_H,logicalWidth:W,logicalHeight:H});
+const projection={OX,OY,HW,HH,wallHeight:WALL_H,logicalWidth:W,logicalHeight:H};
+const skin=window.DungeonVisual.createRenderer(g,LEVEL,images,projection);
+// A registered, single-scene illustration replaces all procedural masonry
+// ONLY after an independent geometry audit and human visual approval.
+// The current proven puzzle and visual fallback remain untouched.
+let authored=null,illustrationState="loading";
+window.DarknessIllustrated.loadRegistered(LEVEL,projection).then(a=>{
+  authored=a;illustrationState="approved";
+}).catch(err=>{
+  illustrationState="fallback: "+err.message;
+});
 const music=document.querySelector("#music"),victory=document.querySelector("#victory");
 music.volume=.28;victory.volume=.42;let muted=false,hasAudio=false;
 function wake(){
@@ -215,10 +226,14 @@ const cellObjects=[];for(let y=0;y<grid.length;y++)for(let x=0;x<grid[y].length;
  const ch=grid[y][x];if(ch==="#"||ch==="N"||ch==="S")cellObjects.push({type:ch,x,y});
 }
 function draw(now){
- skin.backdrop(now);
- // The environment has EXACTLY ONE source of geometry: LEVEL.tiles.
- // No image of an older maze is layered over the new one.
- for(let y=0;y<grid.length;y++)for(let x=0;x<grid[y].length;x++)if(grid[y][x]!=="#")tileFloor(x,y);
+ const registered=authored&&authored.ready;
+ if(registered)authored.backdrop(g,W,H);
+ else {
+   skin.backdrop(now);
+   // Fallback only; final images are static, never made of wall cubes.
+   for(let y=0;y<grid.length;y++)for(let x=0;x<grid[y].length;x++)
+     if(grid[y][x]!=="#")tileFloor(x,y);
+ }
  for(const q of LEVEL.goals)drawGoal(...q,now);
  let position=cen(...player),walk=false;
  const movingBoxes=crates.map((p,i)=>({p:cen(...p),gridPos:p,index:i}));
@@ -235,13 +250,22 @@ function draw(now){
  for(const b of movingBoxes)ents.push({type:"crate",p:b.p,depth:b.gridPos[0]+b.gridPos[1]+.15});
  ents.push({type:"hero",p:position,depth:(position.y-OY)/HH+.28});
  ents.sort((a,b)=>a.depth-b.depth||((a.type==="hero")?1:-1));
+ const appliedDepth=new Set();
  for(const e of ents){
-  if(e.type==="#")drawWall(e.x,e.y);
-  else if(e.type==="N"||e.type==="S")gate(e.x,e.y,e.type,now);
-  else if(e.type==="crate")drawCrate(e.p);
+  if(e.type==="#"){
+    if(registered){
+      if(!appliedDepth.has(e.depth)){authored.occlude(g,e.depth);appliedDepth.add(e.depth);}
+    }else drawWall(e.x,e.y);
+  }else if(e.type==="N"||e.type==="S"){
+    if(registered){
+      const opened=e.type==="S"?solved:!!northOpenAt;
+      const at=e.type==="S"?southOpenAt:northOpenAt;
+      authored.gate(g,e.type,now,opened,at);
+    }else gate(e.x,e.y,e.type,now);
+  }else if(e.type==="crate")drawCrate(e.p);
   else drawHero(e.p,walk,now,finished?Math.max(0,1-(now-finishFade)/650):1);
  }
- skin.lighting(now);
+ if(!registered)skin.lighting(now);
  if(finished&&now-finishFade>700)document.querySelector("#ending").classList.add("show");
  if(!tween&&queue.length&&!finished){
   const d=queue.shift();
@@ -259,7 +283,8 @@ function assertLevel(){
  for(const [x,y] of all){for(const d of dirs){const n=plus([x,y],d);if(!isWall(...n)&&isWall(...n)===false){/* single square step */}}}
 }
 assertLevel();
-window.__darknessCellar={get state(){return snapshot();},level:LEVEL,step,cen,debugTile:pointerTile,reset};
+window.__darknessCellar={get state(){return snapshot();},get artState(){return illustrationState;},
+  level:LEVEL,step,cen,debugTile:pointerTile,reset};
 requestAnimationFrame(draw);
 })();
 </script></body></html>
