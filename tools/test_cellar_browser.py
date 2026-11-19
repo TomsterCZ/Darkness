@@ -26,6 +26,9 @@ with sync_playwright() as p:
       return [c.width,c.height];
     }""")
     assert size==[2170,1132],f"Expected 4x pixel area, got {size}"
+    page.wait_for_function("window.__darknessCellar.artState !== 'loading'",timeout=20000)
+    visual_mode=page.evaluate("window.__darknessCellar.artState")
+    assert visual_mode=="approved" or visual_mode.startswith("fallback:"),visual_mode
     page.wait_for_timeout(1200)
     page.screenshot(path=str(OUT/"cellar_illustrated.png"),full_page=True,animations="disabled")
     state=page.evaluate("""() => ({
@@ -52,5 +55,5 @@ with sync_playwright() as p:
 
 (OUT/"browser_report.json").write_text(json.dumps({
     "status":"PASS","level":state["level"],"canvas":size,"crates":len(state["crates"]),
-    "imageVariance":stat.stddev,"asset404s":failed,"jsErrors":errors},indent=2))
+    "illustrationMode":visual_mode,"imageVariance":stat.stddev,"asset404s":failed,"jsErrors":errors},indent=2))
 print("PASS screenshot",state,"stddev",stat.stddev,"screenshots",list(OUT.iterdir()))
