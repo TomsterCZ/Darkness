@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "status": "reference-only",
+  "manual_review_status": "pending",
+  "canvas": [
+    2170,
+    1132
+  ],
+  "projection": {
+    "ox": 600,
+    "oy": 30,
+    "hw": 40,
+    "hh": 20,
+    "h": 36,
+    "scale": 2
+  },
+  "level": {
+    "tiles": [
+      "#############",
+      "#...........E",
+      "#..##...#...#",
+      "#......##...#",
+      "#..#........#",
+      "#..#...##...#",
+      "#...........#",
+      "#...#.......#",
+      "#...........#",
+      "N...........S",
+      "############."
+    ],
+    "entry": [
+      11,
+      1
+    ],
+    "crates": [
+      [
+        4,
+        8
+      ],
+      [
+        6,
+        7
+      ],
+      [
+        8,
+        7
+      ],
+      [
+        10,
+        8
+      ]
+    ],
+    "goals": [
+      [
+        3,
+        7
+      ],
+      [
+        5,
+        7
+      ],
+      [
+        7,
+        7
+      ],
+      [
+        9,
+        7
+      ]
+    ],
+    "northernGate": [
+      0,
+      9
+    ],
+    "southernGate": [
+      12,
+      9
+    ],
+    "southLanding": [
+      12,
+      10
+    ]
+  },
+  "reason": "No independently geometry-validated and artist-approved pixel-art master scene is installed. Existing renderer is intentionally kept active."
+}
