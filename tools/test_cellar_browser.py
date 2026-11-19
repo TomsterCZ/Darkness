@@ -51,6 +51,14 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     page.screenshot(path=str(OUT/"blueprint_inspector.png"),full_page=True,animations="disabled")
     assert not errors, "Blueprint JS errors: "+repr(errors)
+    page.goto(URL+"/art-studio.html",wait_until="networkidle",timeout=60000)
+    page.wait_for_function("""() => {
+       const i=document.querySelector('#blueprint');
+       return i && i.complete && i.naturalWidth===2170 && i.naturalHeight===1132;
+    }""",timeout=20000)
+    page.screenshot(path=str(OUT/"art_studio_reference.png"),full_page=True,animations="disabled")
+    assert not errors, "Art studio JS errors: "+repr(errors)
+    assert not failed, "Art studio missing files: "+repr(failed)
     browser.close()
 
 (OUT/"browser_report.json").write_text(json.dumps({
