@@ -140,8 +140,8 @@ def main():
         manifest["occlusion_layers"]=layers
         gates={}
         for kind,closed,opened,rect in [
-           ("N",opt.north_closed,opt.north_open,[866,90,120,140]),
-           ("S",opt.south_closed,opt.south_open,[425,337,120,140])]:
+           ("N",opt.north_closed,opt.north_open,[900,90,120,140]),
+           ("S",opt.south_closed,opt.south_open,[420,330,120,140])]:
           for state,path in (("closed",closed),("open",opened)):
             im=Image.open(path).convert("RGBA")
             if min(im.size)<128:raise ValueError("Gate art too small")
