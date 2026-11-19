@@ -33,6 +33,8 @@ jobs:
         run: node tools/test_cellar_grid.mjs
       - name: Verify visual masks and wall correspondence
         run: node tools/test_cellar_visual.cjs
+      - name: Reject unapproved or geometrically mismatched illustrations
+        run: node tools/test_illustration_registration.cjs
       - name: Generate deterministic visual blueprint
         run: |
           node tools/compile_cellar_visual.cjs > /tmp/cellar-render.json
