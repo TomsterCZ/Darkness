@@ -102,3 +102,18 @@ maze image onto the gameplay renderer.
 
 This repository and GitHub Pages are publicly viewable. Public visibility
 does not grant a blanket license to third-party artwork or music.
+
+## Illustrated dungeon art registration
+
+The new [Art Registration Studio](art-studio.html) lets an artist compare a generated
+2170×1132 pixel-art scene against the **exact** level geometry. The
+[image-generator conditioning blueprint](assets/scene/registered/blueprint-reference.png)
+and [authoritative wall mask](assets/scene/registered/expected-wall-mask.png) are
+exported automatically from the current Sokoban rules, not estimated from a
+painting.
+
+The [registration guide](docs/ILLUSTRATION_REGISTRATION.md) explains how to
+submit an independently checked, beautiful scene and separate gate states.
+Until that art passes geometry and visual approval, the game deliberately
+uses its working fallback visual layer. **A pretty but mismatched image is
+never shipped as a playable level.**
