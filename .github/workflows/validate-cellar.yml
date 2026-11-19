@@ -8,6 +8,7 @@ on:
       - 'assets/js/**'
       - 'tools/test_cellar_*.mjs'
       - 'tools/test_cellar_*.cjs'
+      - 'tools/test_illustration_registration.cjs'
       - 'tools/compile_cellar_visual.cjs'
       - '.github/workflows/validate-cellar.yml'
   pull_request:
@@ -16,6 +17,7 @@ on:
       - 'assets/js/**'
       - 'tools/test_cellar_*.mjs'
       - 'tools/test_cellar_*.cjs'
+      - 'tools/test_illustration_registration.cjs'
       - 'tools/compile_cellar_visual.cjs'
 
 permissions:
