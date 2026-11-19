@@ -1,0 +1,51 @@
+name: Export exact cellar illustration reference
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - cellar.html
+      - tools/register_illustration.py
+      - .github/workflows/illustration-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: darkness-illustration-reference
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --disable-pip-version-check "pillow>=10,<13"
+      - name: Render authoritative blueprint and exact wall silhouettes
+        run: |
+          python tools/register_illustration.py --level cellar.html --out /tmp/cellar-blueprint
+          python - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          p=Path('/tmp/cellar-blueprint')
+          for filename in ['blueprint-reference.png','expected-wall-mask.png']:
+            im=Image.open(p/filename)
+            assert im.size==(2170,1132),(filename,im.size)
+          PY
+      - name: Publish reference assets without overwriting artist approval
+        run: |
+          mkdir -p assets/scene/registered
+          cp /tmp/cellar-blueprint/blueprint-reference.png assets/scene/registered/blueprint-reference.png
+          cp /tmp/cellar-blueprint/expected-wall-mask.png assets/scene/registered/expected-wall-mask.png
+          git add assets/scene/registered/blueprint-reference.png assets/scene/registered/expected-wall-mask.png
+          if git diff --cached --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish exact blueprint conditioning image and wall silhouette"
+          git push origin HEAD:main
