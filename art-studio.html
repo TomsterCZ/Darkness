@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darkness — Illustration Registration Studio</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0d0b11;color:#dec5a1;font:14px/1.5 system-ui,sans-serif}
+header{padding:20px max(16px,calc((100vw - 1200px)/2));border-bottom:1px solid #433128;background:#171219}
+h1{font:600 clamp(23px,3vw,33px) Georgia,serif;margin:0 0 5px}a{color:#e8bd87}p{margin:6px 0}main{max-width:1230px;margin:18px auto;padding:0 16px 36px}
+section{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0}
+input[type=file]{max-width:320px}input[type=range]{width:160px}label{display:flex;align-items:center;gap:8px}
+button{background:#312229;border:1px solid #72533e;color:#f1d4ab;border-radius:6px;padding:7px 11px;cursor:pointer}
+.stage{width:100%;aspect-ratio:2170/1132;position:relative;background:#0a090e;border:1px solid #6d4a36;overflow:hidden}
+.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;image-rendering:auto}
+#candidate{display:none}#mask{opacity:.30;display:none;filter:sepia(1) saturate(5) hue-rotate(308deg)}
+#notice{border-left:3px solid #c39864;padding:8px 11px;background:#211924;color:#ead1ae}
+#status{font-family:ui-monospace,monospace;color:#ebc69b}small{color:#bba98e}
+</style></head><body>
+<header><h1>Darkness · Blueprint-to-art studio</h1>
+<p>The picture is a reference, not the game's collision system. Exact alignment is mandatory.</p>
+<a href="cellar.html">Play the unchanged dungeon</a> · <a href="blueprint.html">Inspect logical tiles</a> · <a href="https://github.com/TomsterCZ/Darkness">Repository</a></header>
+<main>
+<p id="notice">Upload a locally generated scene at exactly <b>2170 × 1132</b>. The red overlay marks the authoritative masonry footprint. Crates and the character must be separate sprites, not painted into the scene.</p>
+<section>
+<label>Generated picture <input type="file" id="upload" accept="image/png,image/webp,image/jpeg"></label>
+<label>Illustration opacity <input id="opacity" type="range" min="0" max="100" value="70"> <output id="val">70%</output></label>
+<label><input id="showMask" type="checkbox"> Highlight wall geometry</label>
+<button id="toggle">Flicker blueprint / illustration</button>
+</section>
+<div class="stage"><img id="blueprint" alt="Exact authored level blueprint" src="assets/scene/registered/blueprint-reference.png">
+<img id="candidate" alt="Candidate pixel-art illustration" aria-hidden="true">
+<img id="mask" alt="Required wall silhouette" src="assets/scene/registered/expected-wall-mask.png" aria-hidden="true"></div>
+<section><span id="status">Awaiting an artwork candidate.</span></section>
+<p><small>For a machine-checked registration, trace the actual wall silhouette in an independent mask. Then use <code>python tools/register_illustration.py --help</code>. A generated image that introduces or moves passages must be corrected—not used to change the puzzle.</small></p>
+</main>
+<script>
+(()=>{
+const bp=document.querySelector('#blueprint'),scene=document.querySelector('#candidate');
+const mask=document.querySelector('#mask'),input=document.querySelector('#upload');
+const opacity=document.querySelector('#opacity'),val=document.querySelector('#val');
+const status=document.querySelector('#status');let url=null,showing=true;
+function show(){scene.style.display=showing&&scene.src?'block':'none';scene.style.opacity=Number(opacity.value)/100;val.textContent=opacity.value+'%';}
+opacity.addEventListener('input',show);
+document.querySelector('#showMask').addEventListener('change',e=>mask.style.display=e.target.checked?'block':'none');
+document.querySelector('#toggle').addEventListener('pointerdown',()=>{showing=false;show()});
+document.querySelector('#toggle').addEventListener('pointerup',()=>{showing=true;show()});
+document.querySelector('#toggle').addEventListener('pointerleave',()=>{showing=true;show()});
+input.addEventListener('change',async()=>{
+if(url)URL.revokeObjectURL(url);
+const file=input.files?.[0];if(!file)return;
+url=URL.createObjectURL(file);
+const img=new Image();img.src=url;
+try{await img.decode();}catch(e){status.textContent='Cannot decode this image.';return;}
+if(img.naturalWidth!==2170||img.naturalHeight!==1132){
+status.textContent='REJECTED: artwork is '+img.naturalWidth+'×'+img.naturalHeight+'; required 2170×1132. Do not stretch a mismatched scene.';
+scene.removeAttribute('src');show();return;
+}
+scene.src=url;showing=true;show();
+status.textContent='PREVIEW ONLY — image size matches; wall silhouettes, paths and gate alignment still require independent validation.';
+});
+bp.addEventListener('error',()=>status.textContent='Reference not published yet; check GitHub Actions illustration-reference.');
+})();
+</script></body></html>
