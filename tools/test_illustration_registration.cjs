@@ -18,7 +18,7 @@ approved.gates={N:{rect:[900,90,120,140],closed:'n-closed.png',open:'n-open.png'
 assert.deepEqual(canonicalLevel(level),approved.level);
 assert.doesNotThrow(()=>check(approved,level,p));
 const wrong=JSON.parse(JSON.stringify(level));
-wrong.tiles[2]='#'+wrong.tiles[2].slice(1);
+wrong.tiles[2]=wrong.tiles[2].slice(0,1)+'#'+wrong.tiles[2].slice(2);
 assert.throws(()=>check(approved,wrong,p),/DIFFERENT gameplay blueprint/);
 assert.throws(()=>check(approved,level,{...p,OX:p.OX+40}),/projection/);
 assert.throws(()=>check({...approved,canvas:[1085,566]},level,p),/2170x1132/);
